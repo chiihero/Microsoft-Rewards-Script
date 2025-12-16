@@ -375,28 +375,33 @@ export class Login {
     let checkInterval: NodeJS.Timeout | null = null
 
     try {
-      const inputPromise = new Promise<string>(res => {
-        rl.question('输入2FA代码:\n', ans => {
-          if (checkInterval) clearInterval(checkInterval)
-          rl.close()
-          res(ans.trim())
-        })
-      })
+      let resolveInput = null;
+      const inputPromise = new Promise(res => {
+          resolveInput = res;
+          rl.question('输入2FA代码:\n', ans => {
+              if (checkInterval) clearInterval(checkInterval);
+              rl.close();
+              res(ans.trim());
+          });
+      });
 
       // 每2秒钟检查一次用户是否手动跳过对话框
       checkInterval = setInterval(async () => {
-        try {
-          await this.bot.browser.utils.tryDismissAllMessages(page)
-          // 检查是否不再在2FA页面上
-          const still2FA = await page.locator('input[name="otc"]').first().isVisible({ timeout: 500 }).catch(() => false)
-          if (!still2FA) {
-            this.bot.log(this.bot.isMobile, 'LOGIN', '2FA等待期间页面已更改（用户可能已点击"下一步"）', 'warn')
-            if (checkInterval) clearInterval(checkInterval)
-            rl.close()
-            userInput = 'skip' // 跳过提交的信号
-          }
-        } catch {/* ignore */ }
-      }, 2000)
+          try {
+              await this.bot.browser.utils.tryDismissAllMessages(page);
+              const still2FA = await page.locator('input[name="otc"]').first().isVisible({ timeout: 500 }).catch(() => false);
+              if (!still2FA) {
+                  this.bot.log(this.bot.isMobile, 'LOGIN', '2FA等待期间页面已更改（用户可能已点击"下一步"）', 'warn');
+                  if (checkInterval) clearInterval(checkInterval);
+                  
+                  // 关键修改：直接解析Promise并关闭接口
+                  rl.close();
+                  if (resolveInput) {
+                      resolveInput('skip'); // 直接触发跳过逻辑
+                  }
+              }
+          } catch { /* ignore */ }
+      }, 2000);
 
       const code = await inputPromise
 
