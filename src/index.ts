@@ -23,6 +23,7 @@ import type { Account } from './interface/Account'
 import AxiosClient from './util/Axios'
 import { sendDiscord, flushDiscordQueue } from './logging/Discord'
 import { sendNtfy, flushNtfyQueue } from './logging/Ntfy'
+import { sendPushPlus, flushPushPlusQueue } from './logging/PushPlus'
 import type { DashboardData } from './interface/DashboardData'
 import type { AppDashboardData } from './interface/AppDashBoardData'
 
@@ -57,7 +58,7 @@ export function getCurrentContext(): ExecutionContext {
 }
 
 async function flushAllWebhooks(timeoutMs = 5000): Promise<void> {
-    await Promise.allSettled([flushDiscordQueue(timeoutMs), flushNtfyQueue(timeoutMs)])
+    await Promise.allSettled([flushDiscordQueue(timeoutMs), flushNtfyQueue(timeoutMs), flushPushPlusQueue(timeoutMs)])
 }
 
 interface UserData {
@@ -122,6 +123,52 @@ export class MicrosoftRewardsBot {
         this.config = loadConfig() // 加载配置
         this.activeWorkers = this.config.clusters // 设置活跃工作进程数
         this.exitedWorkers = [] // 初始化已退出工作进程数组
+    }
+
+    private buildSummaryMessage(accountStats: AccountStats[], runStartTime: number, hadWorkerFailure: boolean): string {
+        const totalCollectedPoints = accountStats.reduce((sum, s) => sum + s.collectedPoints, 0)
+        const totalInitialPoints = accountStats.reduce((sum, s) => sum + s.initialPoints, 0)
+        const totalFinalPoints = accountStats.reduce((sum, s) => sum + s.finalPoints, 0)
+        const totalDurationMinutes = ((Date.now() - runStartTime) / 1000 / 60).toFixed(1)
+        const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+        const lines: string[] = [
+            `每日积分摘要 | ${timestamp}`,
+            `状态: ${hadWorkerFailure ? '异常' : '完成'}`,
+            `账户数: ${accountStats.length}`,
+            `总收集积分: +${totalCollectedPoints}`,
+            `原始总计: ${totalInitialPoints} → 新总计: ${totalFinalPoints}`,
+            `总运行时间: ${totalDurationMinutes}分钟`
+        ]
+
+        if (accountStats.length > 0) {
+            lines.push('')
+            lines.push('账户明细:')
+            for (const stat of accountStats) {
+                const status = stat.success ? '成功' : '失败'
+                const duration = Number.isFinite(stat.duration) ? stat.duration.toFixed(1) : String(stat.duration)
+                const error = stat.error ? ` | ${stat.error}` : ''
+                lines.push(
+                    `${stat.email} | +${stat.collectedPoints} | ${stat.initialPoints}→${stat.finalPoints} | ${duration}秒 | ${status}${error}`
+                )
+            }
+        }
+
+        return lines.join('\n')
+    }
+
+    private async sendPushPlusSummary(
+        accountStats: AccountStats[],
+        runStartTime: number,
+        hadWorkerFailure: boolean
+    ): Promise<void> {
+        const pushplus = this.config?.webhook?.pushplus
+        if (!pushplus?.enabled || !pushplus.token) {
+            return
+        }
+
+        const content = this.buildSummaryMessage(accountStats, runStartTime, hadWorkerFailure)
+        await sendPushPlus(pushplus, content)
     }
 
     // 获取当前是否为移动端的上下文
@@ -235,6 +282,7 @@ export class MicrosoftRewardsBot {
                     'green'
                 )
 
+                await this.sendPushPlusSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await flushAllWebhooks()
 
                 process.exit(hadWorkerFailure ? 1 : 0)
@@ -377,6 +425,8 @@ export class MicrosoftRewardsBot {
                 'green'
             )
 
+            const hadWorkerFailure = accountStats.some(s => !s.success)
+            await this.sendPushPlusSummary(accountStats, runStartTime, hadWorkerFailure)
             await flushAllWebhooks()
             process.exit(0)
         }
