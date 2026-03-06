@@ -51,6 +51,7 @@ export interface ConfigWorkers {
 export interface ConfigWebhook {
     discord?: WebhookDiscordConfig
     ntfy?: WebhookNtfyConfig
+    pushplus?: WebhookPushPlusConfig
     webhookLogFilter: LogFilter
 }
 
@@ -75,4 +76,12 @@ export interface WebhookNtfyConfig {
     title?: string
     tags?: string[]
     priority?: 1 | 2 | 3 | 4 | 5 // 5 highest (important)
+}
+
+export interface WebhookPushPlusConfig {
+    enabled?: boolean
+    token: string
+    title?: string
+    template?: 'txt' | 'html' | 'markdown'
+    channel?: string
 }

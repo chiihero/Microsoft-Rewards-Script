@@ -41,6 +41,15 @@ const WebhookSchema = z.object({
             priority: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional()
         })
         .optional(),
+    pushplus: z
+        .object({
+            enabled: z.boolean().optional(),
+            token: z.string(),
+            title: z.string().optional(),
+            template: z.enum(['txt', 'html', 'markdown']).optional(),
+            channel: z.string().optional()
+        })
+        .optional(),
     webhookLogFilter: LogFilterSchema
 })
 

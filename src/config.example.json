@@ -58,6 +58,12 @@
             "tags": ["bot", "notify"],
             "priority": 3
         },
+        "pushplus": {
+            "enabled": false,
+            "token": "",
+            "title": "Microsoft-Rewards-Script",
+            "template": "txt"
+        },
         "webhookLogFilter": {
             "enabled": false,
             "mode": "whitelist",

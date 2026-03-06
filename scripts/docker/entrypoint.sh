@@ -318,6 +318,13 @@ _cfg "${CONFIG_NTFY_TITLE:-}"     '.webhook.ntfy.title'     string
 _cfg "${CONFIG_NTFY_PRIORITY:-}"  '.webhook.ntfy.priority'  number
 _cfg_array "${CONFIG_NTFY_TAGS-__UNSET__}"  '.webhook.ntfy.tags'
 
+# pushplus webhook
+_cfg "${CONFIG_PUSHPLUS_ENABLED:-}"   '.webhook.pushplus.enabled'   bool
+_cfg "${CONFIG_PUSHPLUS_TOKEN:-}"     '.webhook.pushplus.token'     string
+_cfg "${CONFIG_PUSHPLUS_TITLE:-}"     '.webhook.pushplus.title'     string
+_cfg "${CONFIG_PUSHPLUS_TEMPLATE:-}"  '.webhook.pushplus.template'  string
+_cfg "${CONFIG_PUSHPLUS_CHANNEL:-}"   '.webhook.pushplus.channel'   string
+
 # Webhook log filter
 _cfg "${CONFIG_WEBHOOK_LOG_FILTER_ENABLED:-}"  '.webhook.webhookLogFilter.enabled'  bool
 _cfg "${CONFIG_WEBHOOK_LOG_FILTER_MODE:-}"     '.webhook.webhookLogFilter.mode'     string
