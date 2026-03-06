@@ -176,7 +176,7 @@ export class Workers {
 
     public async doPunchCards(data: DashboardData, page: Page) {
         const punchCards: PunchCard[] =
-            data.punchCards.filter(x => !x.parentPromotion.complete && x.parentPromotion.pointProgressMax > 0) ?? []
+            data.punchCards.filter(x => !x.parentPromotion?.complete && x.parentPromotion?.pointProgressMax > 0) ?? []
 
         const punchCardActivities = punchCards.flatMap(x => x.childPromotions)
 
@@ -185,24 +185,24 @@ export class Workers {
                 if (x.complete) return false
                 if (x.exclusiveLockedFeatureStatus === 'locked') return false
                 if (!x.promotionType) return false
-
+                if (x.attributes.is_unlocked) return false
                 return true
             }) ?? []
 
         if (!activitiesUncompleted.length) {
-            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', 'All "Punch Card" items have already been completed')
+            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', '所有"打卡"项目准备完成')
             return
         }
 
         this.bot.logger.info(
             this.bot.isMobile,
             'PUNCHCARD',
-            `Started solving ${activitiesUncompleted.length} "Punch Card" items`
+            `开始解决 ${activitiesUncompleted.length} 个"打卡"项目`
         )
 
         await this.solveActivities(activitiesUncompleted, page)
 
-        this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', 'All "Punch Card" items have been completed')
+        this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', '所有"打卡"项目已完成')
     }
 
     private async solveActivities(activities: BasePromotion[], page: Page, punchCard?: PunchCard) {

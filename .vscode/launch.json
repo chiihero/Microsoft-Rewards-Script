@@ -4,9 +4,10 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
-            "command": "pnpm dev",
-            "name": "Run pnpm dev",
+            "command": "npm run dev",
+            "name": "npm run dev",
             "request": "launch",
             "type": "node-terminal",
             "cwd": "${workspaceFolder}",
