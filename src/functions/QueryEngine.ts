@@ -558,65 +558,117 @@ export class QueryCore {
     }
 
     /**
-     * 获取中国地区的热门搜索词（百度、抖音、微博、头条等）。
-     * 数据源：gmya.net 热门词 API（百度/头条/抖音/微博热搜榜）。
-     * 策略：依次尝试多个源，任一成功即返回；全部失败返回空数组。
+     * 获取中国地区的热门搜索词（百度、抖音、微博、头条、知乎等）。
+     * 数据源：gmya.net 热门词 API。
+     * 策略：随机选取 2 个源聚合结果（避免每个账号都用同一个源，
+     *       分散 API 负载、增加搜索词多样性）；如果某个源失败，
+     *       自动 fallback 到剩余源，确保至少拿到 1 个源的数据。
      *
      * @param geoLocale - 地理区域代码，默认为'CN'
      * @returns 热搜标题字符串数组
      */
     async getChinaTrends(geoLocale: string = 'CN'): Promise<string[]> {
-        this.bot.logger.info(
-            this.bot.isMobile,
-            'SEARCH-CHINA-TRENDS',
-            `正在获取中国热搜 | 地区=${geoLocale}`
-        )
-
-        const sources = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot']
+        const allSources = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot', 'ZhiHuHot']
         const baseUrl = 'https://api.gmya.net/Api/'
         // appkey 留空使用免费档；未来可迁移到 config.queryEngine.chinaApi.appkey
         const appkey = ''
+        // 随机选取的源数量：2 个，兼顾多样性和请求开销
+        const pickedCount = 2
 
-        // 真正的 fallback：依次尝试每个源，任一成功即返回
-        for (const source of sources) {
-            const url = appkey
-                ? `${baseUrl}${source}?format=json&appkey=${appkey}`
-                : `${baseUrl}${source}`
+        // 随机打乱源顺序，取前 pickedCount 个作为首选；其余作为 fallback 备用
+        const shuffled = this.bot.utils.shuffleArray([...allSources])
+        const picked = shuffled.slice(0, pickedCount)
+        const fallback = shuffled.slice(pickedCount)
 
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'SEARCH-CHINA-TRENDS',
+            `正在获取中国热搜 | 地区=${geoLocale} | 首选源=${picked.join(', ')} | 备用源=${fallback.length}个`
+        )
+
+        const titles = new Set<string>()
+        const failedSources: string[] = []
+
+        // 先依次尝试首选源
+        for (const source of picked) {
             try {
-                const titles = await this.fetchChinaHotWords(url, source)
-                if (titles.length) {
+                const result = await this.fetchChinaHotWords(this.buildChinaApiUrl(baseUrl, source, appkey), source)
+                if (result.length) {
+                    result.forEach(t => titles.add(t))
                     this.bot.logger.info(
                         this.bot.isMobile,
                         'SEARCH-CHINA-TRENDS',
-                        `成功获取 ${source} 热搜 | 数量=${titles.length}`,
-                        'green'
+                        `获取 ${source} 成功 | 数量=${result.length} | 累计=${titles.size}`
                     )
-                    return titles
+                } else {
+                    this.bot.logger.warn(this.bot.isMobile, 'SEARCH-CHINA-TRENDS', `${source} 返回空列表`)
+                    failedSources.push(source)
                 }
-                this.bot.logger.warn(
-                    this.bot.isMobile,
-                    'SEARCH-CHINA-TRENDS',
-                    `${source} 返回空列表，尝试下一个源`
-                )
             } catch (error) {
-                // 单源失败不算致命，继续尝试下一个源
+                failedSources.push(source)
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'SEARCH-CHINA-TRENDS',
-                    `${source} 请求失败，尝试下一个源 | 错误=${
-                        error instanceof Error ? error.message : String(error)
-                    }`
+                    `${source} 请求失败 | 错误=${error instanceof Error ? error.message : String(error)}`
                 )
             }
         }
 
-        this.bot.logger.warn(
-            this.bot.isMobile,
-            'SEARCH-CHINA-TRENDS',
-            `所有 ${sources.length} 个热搜源均失败，将仅依赖其他查询源`
-        )
-        return []
+        // 如果首选源全部失败，逐个 fallback 直到拿到数据
+        if (titles.size === 0 && fallback.length) {
+            this.bot.logger.warn(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `首选源全部失败（${failedSources.join(', ')}），尝试备用源 ${fallback.join(', ')}`
+            )
+            for (const source of fallback) {
+                try {
+                    const result = await this.fetchChinaHotWords(
+                        this.buildChinaApiUrl(baseUrl, source, appkey),
+                        source
+                    )
+                    if (result.length) {
+                        result.forEach(t => titles.add(t))
+                        this.bot.logger.info(
+                            this.bot.isMobile,
+                            'SEARCH-CHINA-TRENDS',
+                            `备用源 ${source} 成功 | 数量=${result.length} | 累计=${titles.size}`
+                        )
+                        break // 拿到数据就停
+                    }
+                } catch (error) {
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'SEARCH-CHINA-TRENDS',
+                        `备用源 ${source} 也失败 | 错误=${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
+            }
+        }
+
+        if (titles.size === 0) {
+            this.bot.logger.warn(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `所有 ${allSources.length} 个热搜源均失败，将仅依赖其他查询源`
+            )
+        } else {
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `中国热搜获取完成 | 最终词数=${titles.size} | 成功源=${picked.filter(s => !failedSources.includes(s)).join(',') || fallback.filter(s => titles.size > 0).join(',')}`,
+                'green'
+            )
+        }
+
+        return Array.from(titles)
+    }
+
+    /**
+     * 构造 gmya.net 热搜 API 的请求 URL。
+     */
+    private buildChinaApiUrl(baseUrl: string, source: string, appkey: string): string {
+        return appkey ? `${baseUrl}${source}?format=json&appkey=${appkey}` : `${baseUrl}${source}`
     }
 
     /**
