@@ -175,14 +175,17 @@ export class Workers {
     }
 
     public async doClaimBonusPoints(data: DashboardData) {
+        // 旧版 dashboard 用 pointClaimBannerPromotion 字段预检查"是否可领"，
+        // 但新版 UI 的 dashboard 数据结构变了，该字段恒为 undefined，
+        // 导致永远走"未找到横幅"分支，ClaimBonusPoints.ts 的 Server Action 代码无法执行。
+        //
+        // 现在改成无条件调用，由 ClaimBonusPoints.ts 自己判断：
+        //   - 新版 UI：调 Server Action，根据积分差判断是否真的领到
+        //   - 旧版 UI：走 REST API，依赖 requestToken
+        //   - 没有可领的积分时，Server Action 调用成功但积分差为 0，不会误报
         const pointsActivity = data.pointClaimBannerPromotion
 
-        if (!pointsActivity) {
-            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', '未找到领取奖励积分的横幅')
-            return
-        }
-
-        if (pointsActivity.complete) {
+        if (pointsActivity?.complete) {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
@@ -193,11 +196,14 @@ export class Workers {
 
         await this.bot.activities.doClaimBonusPoints()
 
-        this.bot.logger.info(
-            this.bot.isMobile,
-            'CLAIM-BONUS-POINTS',
+        // 旧版 banner 字段存在时才输出带标题的成功日志；新版由 ClaimBonusPoints.ts 自己输出
+        if (pointsActivity) {
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'CLAIM-BONUS-POINTS',
                 `已领取奖励积分 | 标题="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
-        )
+            )
+        }
     }
 
     public async doPunchCards(data: DashboardData, page: Page) {
