@@ -1,8 +1,7 @@
 import type { AxiosRequestConfig } from 'axios'
-import type { BasePromotion } from '../../../interface/DashboardData'
 import { Workers } from '../../Workers'
 
-export class UrlReward extends Workers {
+export class ClaimBonusPoints extends Workers {
     private cookieHeader: string = ''
 
     private fingerprintHeader: { [x: string]: string } = {}
@@ -11,22 +10,20 @@ export class UrlReward extends Workers {
 
     private oldBalance: number = this.bot.userData.currentPoints
 
-    public async doUrlReward(promotion: BasePromotion) {
+    public async claimBonusPoints() {
         if (!this.bot.requestToken && this.bot.rewardsVersion === 'legacy') {
             this.bot.logger.warn(
                 this.bot.isMobile,
-                'URL-REWARD',
-                '跳过：请求令牌不可用，此活动需要它！'
+                'CLAIM-BONUS-POINTS',
+                'Skipping: Request token not available, this activity requires it!'
             )
             return
         }
 
-        const offerId = promotion.offerId
-
         this.bot.logger.info(
             this.bot.isMobile,
-            'URL-REWARD',
-            `开始UrlReward | offerId=${offerId} | 地区=${this.bot.userData.geoLocale} | 旧余额=${this.oldBalance}`
+            'CLAIM-BONUS-POINTS',
+            `Starting ClaimBonusPoints | geo=${this.bot.userData.geoLocale} | oldBalance=${this.oldBalance}`
         )
 
         try {
@@ -42,29 +39,23 @@ export class UrlReward extends Workers {
 
             this.bot.logger.debug(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `准备好的UrlReward头部 | offerId=${offerId} | cookie长度=${this.cookieHeader.length} | 指纹头部键=${Object.keys(this.fingerprintHeader).length}`
+                'CLAIM-BONUS-POINTS',
+                `Prepared ClaimBonusPoints headers | cookieLength=${this.cookieHeader.length} | fingerprintHeaderKeys=${Object.keys(this.fingerprintHeader).length}`
             )
 
             const formData = new URLSearchParams({
-                id: offerId,
-                hash: promotion.hash,
                 timeZone: this.bot.userData.timezoneOffset,
-                activityAmount: '1',
-                dbs: '0',
-                form: '',
-                type: '',
                 __RequestVerificationToken: this.bot.requestToken
             })
 
             this.bot.logger.debug(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `准备好的UrlReward表单数据 | offerId=${offerId} | hash=${promotion.hash} | 时区=480 | 活动量=1`
+                'CLAIM-BONUS-POINTS',
+                `Prepared ClaimBonusPoints form data | timeZone=${this.bot.userData.timezoneOffset} | activityAmount=1`
             )
 
             const request: AxiosRequestConfig = {
-                url: 'https://rewards.bing.com/api/reportactivity?X-Requested-With=XMLHttpRequest',
+                url: 'https://rewards.bing.com/api/claimallpointsasync?X-Requested-With=XMLHttpRequest',
                 method: 'POST',
                 headers: {
                     ...(this.bot.fingerprint?.headers ?? {}),
@@ -77,16 +68,16 @@ export class UrlReward extends Workers {
 
             this.bot.logger.debug(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `发送UrlReward请求 | offerId=${offerId} | url=${request.url}`
+                'CLAIM-BONUS-POINTS',
+                `Sending ClaimBonusPoints request | url=${request.url}`
             )
 
             const response = await this.bot.axios.request(request)
 
             this.bot.logger.debug(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `收到UrlReward响应 | offerId=${offerId} | 状态=${response.status}`
+                'CLAIM-BONUS-POINTS',
+                `Received ClaimBonusPoints response | status=${response.status}`
             )
 
             const newBalance = await this.bot.browser.func.getCurrentPoints()
@@ -94,8 +85,8 @@ export class UrlReward extends Workers {
 
             this.bot.logger.debug(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `UrlReward后的余额差额 | offerId=${offerId} | 旧余额=${this.oldBalance} | 新余额=${newBalance} | 获得积分=${this.gainedPoints}`
+                'CLAIM-BONUS-POINTS',
+                `Balance delta after ClaimBonusPoints | oldBalance=${this.oldBalance} | newBalance=${newBalance} | gainedPoints=${this.gainedPoints}`
             )
 
             if (this.gainedPoints > 0) {
@@ -104,26 +95,26 @@ export class UrlReward extends Workers {
 
                 this.bot.logger.info(
                     this.bot.isMobile,
-                    'URL-REWARD',
-                    `完成UrlReward | offerId=${offerId} | 状态=${response.status} | 获得积分=${this.gainedPoints} | 新余额=${newBalance}`,
+                    'CLAIM-BONUS-POINTS',
+                    `Completed ClaimBonusPoints | status=${response.status} | gainedPoints=${this.gainedPoints} | newBalance=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
-                    'URL-REWARD',
-                    `UrlReward失败，没有积分 | offerId=${offerId} | 状态=${response.status} | 旧余额=${this.oldBalance} | 新余额=${newBalance}`
+                    'CLAIM-BONUS-POINTS',
+                    `Failed ClaimBonusPoints with no points | status=${response.status} | oldBalance=${this.oldBalance} | newBalance=${newBalance}`
                 )
             }
 
-            this.bot.logger.debug(this.bot.isMobile, 'URL-REWARD', `等待UrlReward后 | offerId=${offerId}`)
+            this.bot.logger.debug(this.bot.isMobile, 'CLAIM-BONUS-POINTS', `Waiting after ClaimBonusPoints`)
 
             await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 10000))
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
-                'URL-REWARD',
-                `doUrlReward中出错 | offerId=${promotion.offerId} | 消息=${error instanceof Error ? error.message : String(error)}`
+                'CLAIM-BONUS-POINTS',
+                `Error in doClaimBonusPoints | message=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

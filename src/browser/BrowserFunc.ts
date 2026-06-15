@@ -325,6 +325,52 @@ export default class BrowserFunc {
         }
     }
 
+    async ensureStreakProtection() {
+        try {
+            if (!this.bot.requestToken && this.bot.rewardsVersion === 'legacy') {
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'ENABLE-STREAK-PROTECTION',
+                    'Skipping: Request token not available, this action requires it!'
+                )
+                return
+            }
+
+            const formData = new URLSearchParams({
+                isOn: 'true',
+                activityAmount: '1',
+                timeZone: this.bot.userData.timezoneOffset,
+                __RequestVerificationToken: this.bot.requestToken
+            })
+
+            // We don't actually check if it's already on or not, we just always send the "turn on payloud" :)
+            const request: AxiosRequestConfig = {
+                url: 'https://rewards.bing.com/api/togglestreakasync?X-Requested-With=XMLHttpRequest',
+                method: 'POST',
+                headers: {
+                    ...(this.bot.fingerprint?.headers ?? {}),
+                    Cookie: this.buildCookieHeader(this.bot.cookies.mobile, [
+                        'bing.com',
+                        'live.com',
+                        'microsoftonline.com'
+                    ]),
+                    Referer: 'https://rewards.bing.com/',
+                    Origin: 'https://rewards.bing.com'
+                },
+                data: formData
+            }
+
+            await this.bot.axios.request(request)
+        } catch (error) {
+            this.bot.logger.error(
+                this.bot.isMobile,
+                'ENABLE-STREAK-PROTECTION',
+                `Error enabling streak protection: ${error instanceof Error ? error.message : String(error)}`
+            )
+            throw error
+        }
+    }
+
     async closeBrowser(browser: BrowserContext, email: string) {
         const rootBrowser = (browser as any).browser?.() || null
 

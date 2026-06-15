@@ -52,7 +52,7 @@ const executionContext = new AsyncLocalStorage<ExecutionContext>()
 export function getCurrentContext(): ExecutionContext {
     const context = executionContext.getStore()
     if (!context) {
-        return { isMobile: false, account: {} as any }
+        return { isMobile: false, account: {} as Account }
     }
     return context
 }
@@ -65,6 +65,7 @@ interface UserData {
     userName: string
     geoLocale: string
     langCode: string
+    timezoneOffset: string
     initialPoints: number
     currentPoints: number
     gainedPoints: number
@@ -109,6 +110,7 @@ export class MicrosoftRewardsBot {
             userName: '', // 用户名
             geoLocale: 'CN', // 地理区域
             langCode: 'zh', // 语言代码
+            timezoneOffset: '480', // 时区偏移（分钟）
             initialPoints: 0, // 初始积分
             currentPoints: 0, // 当前积分
             gainedPoints: 0 // 已获得积分
@@ -341,6 +343,7 @@ export class MicrosoftRewardsBot {
             const accountStartTime = Date.now()
             const accountEmail = account.email
             this.userData.userName = this.utils.getEmailUsername(accountEmail)
+            this.userData.timezoneOffset = String(-new Date().getTimezoneOffset())
 
             try {
                 this.logger.info(
@@ -498,6 +501,11 @@ export class MicrosoftRewardsBot {
                     } | 应用: ${appEarnable?.totalEarnablePoints ?? 0} | ${accountEmail} | 区域设置: ${this.userData.geoLocale}`
                 )
 
+                // Ensure streak protection is true if enabled
+                if (this.config.ensureStreakProtection) {
+                    await this.browser.func.ensureStreakProtection()
+                }
+                if (this.config.workers.doClaimBonusPoints) await this.workers.doClaimBonusPoints(data)
                 if (this.config.workers.doAppPromotions) await this.workers.doAppPromotions(appData)
                 if (this.config.workers.doDailySet) await this.workers.doDailySet(data, this.mainMobilePage)
                 if (this.config.workers.doSpecialPromotions) await this.workers.doSpecialPromotions(data)

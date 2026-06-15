@@ -27,7 +27,7 @@ export interface DashboardData {
     coupons: unknown[]
     couponBannerPromotion: null
     popUpPromotions: BingUfMachineTranslationPromo
-    pointClaimBannerPromotion: null
+    pointClaimBannerPromotion: PointClaimBannerPromotion
     highValueSweepstakesPromotions: HighValueSweepstakesPromotion[]
     revIpCountryName: null
     shareAndWinPromotion: null
@@ -800,4 +800,121 @@ export interface ReferrerProgressInfo {
     pointsMax: number
     isComplete: boolean
     promotions: unknown[]
+}
+
+export interface PointClaimBannerPromotion {
+    name: string
+    priority: number
+    attributes: PointClaimBannerPromotionAttributes
+    offerId: string
+    complete: boolean
+    counter: number
+    activityProgress: number
+    activityProgressMax: number
+    pointProgressMax: number
+    pointProgress: number
+    promotionType: string
+    promotionSubtype: string
+    title: string
+    extBannerTitle: string
+    titleStyle: string
+    theme: string
+    description: string
+    extBannerDescription: string
+    descriptionStyle: string
+    showcaseTitle: string
+    showcaseDescription: string
+    imageUrl: string
+    dynamicImage: string
+    smallImageUrl: string
+    backgroundImageUrl: string
+    showcaseBackgroundImageUrl: string
+    showcaseBackgroundLargeImageUrl: string
+    promotionBackgroundLeft: string
+    promotionBackgroundRight: string
+    iconUrl: string
+    animatedIconUrl: string
+    animatedLargeBackgroundImageUrl: string
+    destinationUrl: string
+    linkText: string
+    hash: string
+    activityType: string
+    isRecurring: boolean
+    isHidden: boolean
+    isTestOnly: boolean
+    isGiveEligible: boolean
+    level: string
+    levelUpActionsProgress: number
+    levelUpActivityDefaultSearchEngineDays: number
+    levelUpActivityDefaultSearchEngineCompletedAmount: number
+    levelUpActivityDailySetStreakDays: number
+    levelUpActivityDailySetCompletedAmount: number
+    levelUpActivityDailyStreaksCompletedAmount: number
+    levelUpActivityXboxGamePassCompleted: boolean
+    bingSearchDailyPoints: number
+    bingStarMonthlyBonusProgress: number
+    bingStarMonthlyBonusMaximum: number
+    bingStarBonusWeeklyProgress: number
+    bingStarBonusWeeklyState: string
+    defaultSearchEngineMonthlyBonusProgress: number
+    defaultSearchEngineMonthlyBonusMaximum: number
+    defaultSearchEngineMonthlyBonusState: string
+    monthlyLevelBonusMaximum: number
+    monthlyDistributionChartSrc: string
+    monthlyLevelBonusProgress: number
+    monthlyLevelBonusState: string
+    slidesCount: number
+    legalText: string
+    legalLinkText: string
+    deviceType: string
+    exclusiveLockedFeatureCategory: ExclusiveLockedFeature
+    exclusiveLockedFeatureStatus: ExclusiveLockedFeature
+    exclusiveLockedFeatureDestinationUrl: string
+    lockedImage: string
+    pointsPerSearch: number
+    pointsPerSearchNewLevels: number
+    lastMonthLevel: string
+    sectionalOrdering: number
+    isAnimatedRewardEnabled: boolean
+    hvaLevelUpActivityDailySetCompletedAmount_V2: string
+    hvaLevelUpActivityDailySetCompletedMax_V2: string
+    hvaLevelUpActivityDailySetDays_V2: string
+    hvaLevelUpActivityDailySetDaysMax_V2: string
+    hvaLevelUpActivityDailySetProgress_V2: boolean
+    hvaLevelUpActivityDailySetDisplay_V2: boolean
+    hvaLevelUpActivityDailyStreaksBingCompletedAmount_V2: string
+    hvaLevelUpActivityDailyStreaksBingCompletedMax_V2: string
+    hvaLevelUpActivityDailyStreaksBingProgress_V2: boolean
+    hvaLevelUpActivityDailyStreaksBingDisplay_V2: boolean
+    hvaLevelUpActivityDailyStreaksMobileCompletedAmount_V2: string
+    hvaLevelUpActivityDailyStreaksMobileCompletedMax_V2: string
+    hvaLevelUpActivityDailyStreaksMobileProgress_V2: boolean
+    hvaLevelUpActivityDailyStreaksMobileDisplay_V2: boolean
+    hvaLevelUpDefaultSearchEngineCompletedAmount_V2: string
+    hvaLevelUpActivityDefaultSearchEngineCompletedMax_V2: string
+    hvaLevelUpActivityDefaultSearchEngineDays_V2: string
+    hvaLevelUpActivityDefaultSearchEngineDaysMax_V2: string
+    hvaLevelUpActivityDefaultSearchEngineProgress_V2: boolean
+    hvaLevelUpActivityDefaultSearchEngineDisplay_V2: boolean
+    hvaLevelUpActivityXboxGamePassCompletedAmount_V2: string
+    hvaLevelUpActivityXboxGamePassCompletedMax_V2: string
+    hvaLevelUpActivityXboxGamePassProgress_V2: boolean
+    hvaLevelUpActivityXboxGamePassDisplay_V2: boolean
+    programRestructureWave2HvaFlight: string
+    programRestructureHvaSevenDayLink: string
+}
+
+export interface PointClaimBannerPromotionAttributes {
+    claimable_points: string
+    claimable_points_breakdown: string
+    complete: GiveEligible
+    expiry_date_start: Date
+    hidden: GiveEligible
+    max: string
+    offerid: string
+    progress: string
+    rewardable: GiveEligible
+    type: string
+    give_eligible: GiveEligible
+    destination: string
 }

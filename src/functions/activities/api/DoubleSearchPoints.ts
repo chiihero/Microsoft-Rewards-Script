@@ -46,7 +46,7 @@ export class DoubleSearchPoints extends Workers {
             const formData = new URLSearchParams({
                 id: offerId,
                 hash: promotion.hash,
-                timeZone: '480',
+                timeZone: this.bot.userData.timezoneOffset,
                 activityAmount: '1',
                 dbs: '0',
                 form: '',

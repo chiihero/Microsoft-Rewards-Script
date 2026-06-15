@@ -38,8 +38,8 @@ export function loadConfig(): Config {
         const configDir = path.join(__dirname, '../', 'config.json')
         const config = fs.readFileSync(configDir, 'utf-8')
 
-        const configData = JSON.parse(config)
-        validateConfig(configData)
+        const unverifiedConfig = JSON.parse(config)
+        const configData = validateConfig(unverifiedConfig)
 
         configCache = configData
 

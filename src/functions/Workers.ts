@@ -174,6 +174,32 @@ export class Workers {
         this.bot.logger.info(this.bot.isMobile, 'SPECIAL-ACTIVITY', '所有"特殊活动"项目已完成')
     }
 
+    public async doClaimBonusPoints(data: DashboardData) {
+        const pointsActivity = data.pointClaimBannerPromotion
+
+        if (!pointsActivity) {
+            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', 'No claim bonus points banner found')
+            return
+        }
+
+        if (pointsActivity.complete) {
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'CLAIM-BONUS-POINTS',
+                `Bonus points have already been claimed | offerId=${pointsActivity.offerId}`
+            )
+            return
+        }
+
+        await this.bot.activities.doClaimBonusPoints()
+
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'CLAIM-BONUS-POINTS',
+            `Bonus points have been claimed | title="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
+        )
+    }
+
     public async doPunchCards(data: DashboardData, page: Page) {
         const punchCards =
             data.punchCards?.filter(

@@ -133,10 +133,12 @@ fi
 #      CONFIG_CLUSTERS=2                 → .clusters
 #      CONFIG_DEBUG_LOGS=true            → .debugLogs
 #      CONFIG_ERROR_DIAGNOSTICS=true     → .errorDiagnostics
+#      CONFIG_ENSURE_STREAK_PROTECTION=true → .ensureStreakProtection
 #      CONFIG_GLOBAL_TIMEOUT=30sec       → .globalTimeout
 #
 #    Workers (boolean):
 #      CONFIG_WORKER_DAILY_SET           → .workers.doDailySet
+#      CONFIG_WORKER_CLAIM_BONUS_POINTS  → .workers.doClaimBonusPoints
 #      CONFIG_WORKER_SPECIAL_PROMOTIONS  → .workers.doSpecialPromotions
 #      CONFIG_WORKER_MORE_PROMOTIONS     → .workers.doMorePromotions
 #      CONFIG_WORKER_PUNCH_CARDS         → .workers.doPunchCards
@@ -256,10 +258,12 @@ _cfg 'true'                            '.headless'                              
 _cfg "${CONFIG_CLUSTERS:-}"            '.clusters'                                  number
 _cfg "${CONFIG_DEBUG_LOGS:-}"          '.debugLogs'                                 bool
 _cfg "${CONFIG_ERROR_DIAGNOSTICS:-}"   '.errorDiagnostics'                          bool
+_cfg "${CONFIG_ENSURE_STREAK_PROTECTION:-}"   '.ensureStreakProtection'                          bool
 _cfg "${CONFIG_GLOBAL_TIMEOUT:-}"      '.globalTimeout'                             string
 
 # Workers
 _cfg "${CONFIG_WORKER_DAILY_SET:-}"           '.workers.doDailySet'           bool
+_cfg "${CONFIG_WORKER_CLAIM_BONUS_POINTS:-}"  '.workers.doClaimBonusPoints'           bool
 _cfg "${CONFIG_WORKER_SPECIAL_PROMOTIONS:-}"  '.workers.doSpecialPromotions'   bool
 _cfg "${CONFIG_WORKER_MORE_PROMOTIONS:-}"     '.workers.doMorePromotions'      bool
 _cfg "${CONFIG_WORKER_PUNCH_CARDS:-}"         '.workers.doPunchCards'          bool

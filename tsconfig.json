@@ -39,14 +39,17 @@
         "noImplicitOverride": true, /* 确保派生类中的重写成员标记有'override'修饰符。 */
         // "noPropertyAccessFromIndexSignature": true,  /* 要求索引签名中的未声明属性使用元素访问。 */
         /* 模块解析选项 */
-        "moduleResolution": "node", /* 指定模块解析策略：'node'（Node.js）或'classic'（TypeScript 1.6之前）。 */
-	    "types": ["node"],
-	    // Keep explicit typeRoots to ensure resolution in environments that don't auto-detect before full install.
+        "moduleResolution": "bundler", /* 指定模块解析策略：'node'、'node16'、'nodenext'、'bundler'或'classic'（TypeScript 1.6之前）。 */
+        "types": [
+            "node"
+        ],
+        /* 显式指定 typeRoots，确保在完整安装前不会自动检测失败的环境下也能解析类型 */
+        "typeRoots": [
+            "./node_modules/@types"
+        ],
         // "baseUrl": "./",                             /* 解析非绝对模块名称的基本目录。 */
         // "paths": {},                                 /* 一系列条目，用于将导入重新映射到相对于'baseUrl'的查找位置。 */
         // "rootDirs": [],                              /* 根文件夹列表，其组合内容表示运行时项目的结构。 */
-        // "typeRoots": [],                             /* 包含类型定义的文件夹列表。 */
-        // "typeRoots": [],                                 /* 要包含在编译中的类型声明文件。 */
         // "allowSyntheticDefaultImports": true,        /* 允许从没有默认导出的模块进行默认导入。这不影响代码发射，只影响类型检查。 */
         "esModuleInterop": true, /* 通过为所有导入创建命名空间对象，启用CommonJS和ES模块之间的发射互操作性。隐含'allowSyntheticDefaultImports'。 */
         // "preserveSymlinks": true,                    /* 不解析符号链接的真实路径。 */
@@ -66,12 +69,12 @@
     },
     "include": [
         "src/**/*.ts",
-        "src/**/*.d.ts",
         "src/accounts.json",
         "src/config.json",
-        "src/functions/queries.json",
         "src/functions/bing-search-activity-queries.json",
         "src/functions/search-queries.json"
     ],
-    "exclude": ["node_modules"]
+    "exclude": [
+        "node_modules"
+    ]
 }

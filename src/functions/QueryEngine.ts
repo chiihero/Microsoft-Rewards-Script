@@ -274,7 +274,7 @@ export class QueryCore {
 
             const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
             const suggestions =
-                response.data.suggestionGroups?.[0]?.searchSuggestions?.map((x: { query: any }) => x.query) ?? []
+                response.data.suggestionGroups?.[0]?.searchSuggestions?.map((x: { query: string }) => x.query) ?? []
 
             if (!suggestions.length) {
                 this.bot.logger.debug(

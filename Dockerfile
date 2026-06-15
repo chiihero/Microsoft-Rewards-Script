@@ -23,8 +23,7 @@ RUN rm -rf node_modules \
     && npm cache clean --force
 
 # Install Chromium Headless Shell, and cleanup
-RUN npx patchright install --with-deps --only-shell chromium \
-    && rm -rf /root/.cache /tmp/* /var/tmp/*
+RUN npx patchright install --with-deps --only-shell chromium 
 
 ###############################################################################
 # Stage 2: Runtime

@@ -4,6 +4,7 @@ export interface Config {
     headless: boolean
     clusters: number
     errorDiagnostics: boolean
+    ensureStreakProtection: boolean
     workers: ConfigWorkers
     searchOnBingLocalQueries: boolean
     globalTimeout: number | string
@@ -39,6 +40,7 @@ export interface ConfigWorkers {
     doDailySet: boolean
     doSpecialPromotions: boolean
     doMorePromotions: boolean
+    doClaimBonusPoints: boolean
     doPunchCards: boolean
     doAppPromotions: boolean
     doDesktopSearch: boolean

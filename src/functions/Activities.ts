@@ -13,6 +13,7 @@ import { UrlRewardNew } from './activities/api/UrlRewardNew'
 import { Quiz } from './activities/api/Quiz'
 import { FindClippy } from './activities/api/FindClippy'
 import { DoubleSearchPoints } from './activities/api/DoubleSearchPoints'
+import { ClaimBonusPoints } from './activities/api/ClaimBonusPoints'
 
 // Browser
 import { SearchOnBing } from './activities/browser/SearchOnBing'
@@ -90,6 +91,11 @@ export default class Activities {
     doDoubleSearchPoints = async (promotion: PurplePromotionalItem): Promise<void> => {
         const doubleSearchPoints = new DoubleSearchPoints(this.bot)
         await doubleSearchPoints.doDoubleSearchPoints(promotion)
+    }
+
+    doClaimBonusPoints = async (): Promise<void> => {
+        const claimBonusPoints = new ClaimBonusPoints(this.bot)
+        await claimBonusPoints.claimBonusPoints()
     }
 
     // App Activities

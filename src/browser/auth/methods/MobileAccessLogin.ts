@@ -104,7 +104,7 @@ export class MobileAccessLogin {
 
                     // 如果出现Passkey提示则处理
                     await this.handlePasskeyPrompt()
-                } catch (err) {
+                } catch {
                     this.bot.logger.debug(
                         this.bot.isMobile,
                         'LOGIN-APP',
