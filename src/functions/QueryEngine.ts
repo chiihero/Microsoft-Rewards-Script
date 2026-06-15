@@ -558,63 +558,93 @@ export class QueryCore {
     }
 
     /**
-     * 获取中国地区的热门搜索词（百度、抖音、微博等）
+     * 获取中国地区的热门搜索词（百度、抖音、微博、头条等）。
+     * 数据源：gmya.net 热门词 API（百度/头条/抖音/微博热搜榜）。
+     * 策略：依次尝试多个源，任一成功即返回；全部失败返回空数组。
+     *
      * @param geoLocale - 地理区域代码，默认为'CN'
-     * @returns Promise<GoogleSearch[]> - 包含主题和相关搜索词的数组
+     * @returns 热搜标题字符串数组
      */
     async getChinaTrends(geoLocale: string = 'CN'): Promise<string[]> {
-        const queryTerms: GoogleSearch[] = []
-        this.bot.logger.info(this.bot.isMobile, 'SEARCH-CHINA-TRENDS', `正在生成搜索查询，可能需要一些时间！ | 地理区域: ${geoLocale}`)
-        var appkey = "";//从https://www.gmya.net/api 网站申请的热门词接口APIKEY
-        var Hot_words_apis = "https://api.gmya.net/Api/";// 故梦热门词API接口网站
-        //{weibohot}微博热搜榜//{douyinhot}抖音热搜榜/{zhihuhot}知乎热搜榜/{baiduhot}百度热搜榜/{toutiaohot}今日头条热搜榜/
-        var keywords_source = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot'];
-        var random_keywords_source = keywords_source[Math.floor(Math.random() * keywords_source.length)];
-        var current_source_index = 0; // 当前搜索词来源的索引
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'SEARCH-CHINA-TRENDS',
+            `正在获取中国热搜 | 地区=${geoLocale}`
+        )
 
-        while (current_source_index < keywords_source.length) {
-            // const source = keywords_source[current_source_index]; // 获取当前搜索词来源
-            const source = random_keywords_source; // 获取当前搜索词来源
-            let url;
-            //根据 appkey 是否为空来决定如何构建 URL地址,如果appkey为空,则直接请求接口地址
-            if (appkey) {
-                url = Hot_words_apis + source + "?format=json&appkey=" + appkey;//有appkey则添加appkey参数
-            } else {
-                url = Hot_words_apis + source;//无appkey则直接请求接口地址
-            }
+        const sources = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot']
+        const baseUrl = 'https://api.gmya.net/Api/'
+        // appkey 留空使用免费档；未来可迁移到 config.queryEngine.chinaApi.appkey
+        const appkey = ''
+
+        // 真正的 fallback：依次尝试每个源，任一成功即返回
+        for (const source of sources) {
+            const url = appkey
+                ? `${baseUrl}${source}?format=json&appkey=${appkey}`
+                : `${baseUrl}${source}`
+
             try {
-                const response = await fetch(url); // 发起网络请求
-                if (!response.ok) {
-                    throw new Error('HTTP error! status: ' + response.status); // 如果响应状态不是OK，则抛出错误
+                const titles = await this.fetchChinaHotWords(url, source)
+                if (titles.length) {
+                    this.bot.logger.info(
+                        this.bot.isMobile,
+                        'SEARCH-CHINA-TRENDS',
+                        `成功获取 ${source} 热搜 | 数量=${titles.length}`,
+                        'green'
+                    )
+                    return titles
                 }
-                this.bot.logger.info(this.bot.isMobile, 'SEARCH-CHINA-TRENDS', `已获取${source}搜索查询`)
-
-                const data = await response.json(); // 解析响应内容为JSON
-
-                // 显式指定 item 的类型为 any，解决隐式 any 类型的问题
-                if (data.data.some((item: any) => item)) {
-                    // 如果数据中存在有效项
-                    // 提取每个元素的title属性值
-                    const names = data.data.map((item: any) => item.title);
-                    // 显式指定 name 的类型为 string，解决隐式 any 类型的问题
-                    names.forEach((name: string) => {
-                        queryTerms.push({
-                            topic: name,
-                            related: []
-                        });
-                    });
-                    // 返回搜索到的title属性值列表
-                    return queryTerms.flatMap(x => [x.topic, ...x.related]);
-                }
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'SEARCH-CHINA-TRENDS',
+                    `${source} 返回空列表，尝试下一个源`
+                )
             } catch (error) {
-                // 当前来源请求失败，记录错误并尝试下一个来源
-                this.bot.logger.error(this.bot.isMobile, 'SEARCH-CHINA-TRENDS', `搜索词来源请求失败: ${error}`);
+                // 单源失败不算致命，继续尝试下一个源
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'SEARCH-CHINA-TRENDS',
+                    `${source} 请求失败，尝试下一个源 | 错误=${
+                        error instanceof Error ? error.message : String(error)
+                    }`
+                )
             }
-            // 尝试下一个搜索词来源
-            current_source_index++;
         }
 
-        return queryTerms.flatMap(x => [x.topic, ...x.related]);
+        this.bot.logger.warn(
+            this.bot.isMobile,
+            'SEARCH-CHINA-TRENDS',
+            `所有 ${sources.length} 个热搜源均失败，将仅依赖其他查询源`
+        )
+        return []
+    }
 
+    /**
+     * 请求单个中国热搜源并解析标题。
+     * 走 bot.axios（统一代理、错误诊断、fingerprint headers），带 10s 超时。
+     * 对响应数据做结构校验，过滤掉无 title 或空 title 的项。
+     */
+    private async fetchChinaHotWords(url: string, source: string): Promise<string[]> {
+        const request: AxiosRequestConfig = {
+            url,
+            method: 'GET',
+            headers: {
+                ...(this.bot.fingerprint?.headers ?? {})
+            },
+            timeout: 10000
+        }
+
+        const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
+        const data = response.data
+
+        // 数据结构校验：gmya.net 返回 { data: [{ title: string }, ...] }
+        if (!data || !Array.isArray(data.data)) {
+            throw new Error(`${source} 响应格式异常：缺少 data 数组`)
+        }
+
+        return data.data
+            .filter((item: { title?: unknown }) => item && typeof item.title === 'string')
+            .map((item: { title: string }) => item.title)
+            .filter((title: string) => title.trim().length > 0)
     }
 }
