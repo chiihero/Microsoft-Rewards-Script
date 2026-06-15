@@ -143,44 +143,147 @@ export class QueryCore {
         const head = baseTopics.slice(0, LIMIT)
         const tail = baseTopics.slice(LIMIT)
 
+        // 统计计数器（替代原来每条一日志的噪音）
+        const stats = {
+            emptySuggestionCount: 0, // 空建议次数
+            emptyRelatedCount: 0, // 空相关次数
+            failedRequestCount: 0, // 请求失败次数
+            totalSuggestions: 0, // 总建议词数
+            totalRelated: 0, // 总相关词数
+            expandedTopics: 0 // 成功扩展的主题数（≥1 条建议或相关）
+        }
+
+        // 记录每个主题的扩展结果，用于最后输出清单
+        const topicResults: Array<{ topic: string; suggCount: number; relCount: number }> = []
+
+        // 进度采样阈值：每 25% 输出一次
+        const sampleStep = Math.max(1, Math.ceil(head.length / 4))
+
         this.bot.logger.debug(
             this.bot.isMobile,
             'QUERY-MANAGER',
             `启用相关搜索 | 基础主题=${baseTopics.length} | 扩展=${head.length} | 直接通过=${tail.length} | 语言=${langCode}`
         )
-        this.bot.logger.debug(
-            this.bot.isMobile,
-            'QUERY-MANAGER',
-            `启用必应扩展 | 限制=${LIMIT} | 总调用次数=${head.length * 2}`
-        )
 
-        for (const topic of head) {
-            const suggestions = await this.getBingSuggestions(topic, langCode).catch(() => [])
-            const relatedTerms = await this.getBingRelatedTerms(topic).catch(() => [])
+        for (let i = 0; i < head.length; i++) {
+            const topic = head[i] as string
+            const suggestions = await this.getBingSuggestions(topic, langCode).catch(() => {
+                stats.failedRequestCount++
+                return []
+            })
+            const relatedTerms = await this.getBingRelatedTerms(topic).catch(() => {
+                stats.failedRequestCount++
+                return []
+            })
+
+            if (!suggestions.length) stats.emptySuggestionCount++
+            if (!relatedTerms.length) stats.emptyRelatedCount++
+            if (suggestions.length || relatedTerms.length) stats.expandedTopics++
+
+            stats.totalSuggestions += suggestions.length
+            stats.totalRelated += relatedTerms.length
+            topicResults.push({ topic, suggCount: suggestions.length, relCount: relatedTerms.length })
 
             const usedSuggestions = suggestions.slice(0, 6)
             const usedRelated = relatedTerms.slice(0, 3)
-
             const cluster = this.normalizeAndDedupe([topic, ...usedSuggestions, ...usedRelated])
-
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                'QUERY-MANAGER',
-                `聚类已扩展 | 主题="${topic}" | 建议=${suggestions.length}->${usedSuggestions.length} | 相关=${relatedTerms.length}->${usedRelated.length} | 聚类大小=${cluster.length}`
-            )
-
             clusters.push(cluster)
-        }
 
-        if (tail.length) {
-            this.bot.logger.debug(this.bot.isMobile, 'QUERY-MANAGER', `聚类直通 | 主题=${tail.length}`)
-
-            for (const topic of tail) {
-                clusters.push([topic])
+            // 进度采样：每 25% 或最后一个输出一次
+            const isLast = i === head.length - 1
+            if ((i + 1) % sampleStep === 0 || isLast) {
+                const pct = Math.round(((i + 1) / head.length) * 100)
+                this.bot.logger.debug(
+                    this.bot.isMobile,
+                    'QUERY-MANAGER',
+                    `扩展进度 ${i + 1}/${head.length} (${pct}%) | 当前="${topic}" | ` +
+                        `空建议=${stats.emptySuggestionCount} 空相关=${stats.emptyRelatedCount} ` +
+                        `失败=${stats.failedRequestCount} 累计聚类=${clusters.reduce((s, c) => s + c.length, 0)}`
+                )
             }
         }
 
+        if (tail.length) {
+            for (const topic of tail) clusters.push([topic])
+            this.bot.logger.debug(
+                this.bot.isMobile,
+                'QUERY-MANAGER',
+                `直通主题 | 数量=${tail.length} (超过 LIMIT=${LIMIT})`
+            )
+        }
+
+        // 最终汇总（一条代替原来几十条）
+        this.bot.logger.debug(
+            this.bot.isMobile,
+            'QUERY-MANAGER',
+            `扩展完成 | 主题数=${baseTopics.length} | 成功扩展=${stats.expandedTopics} ` +
+                `| 空建议=${stats.emptySuggestionCount}/${head.length} ` +
+                `| 空相关=${stats.emptyRelatedCount}/${head.length} ` +
+                `| 请求失败=${stats.failedRequestCount} ` +
+                `| 总建议词=${stats.totalSuggestions} 总相关词=${stats.totalRelated} ` +
+                `| 最终聚类=${clusters.length} 聚类总词数=${clusters.reduce((s, c) => s + c.length, 0)}`
+        )
+
+        // 输出热搜词使用清单（INFO 级别，默认可见）
+        this.logTopicUsageReport(topicResults, tail)
+
         return clusters
+    }
+
+    /**
+     * 输出热搜词使用清单，分三类展示：
+     * - 可扩展（有建议/相关词）
+     * - 未扩展（Bing 无建议/相关，直接作为搜索词）
+     * - 直通（超过 LIMIT 没参与扩展）
+     * 每类最多展示 20 个，避免日志过长。
+     */
+    private logTopicUsageReport(
+        topicResults: Array<{ topic: string; suggCount: number; relCount: number }>,
+        tail: string[]
+    ): void {
+        const MAX_DISPLAY = 20
+        const total = topicResults.length + tail.length
+
+        const expanded = topicResults.filter(r => r.suggCount > 0 || r.relCount > 0)
+        const unexpanded = topicResults.filter(r => r.suggCount === 0 && r.relCount === 0)
+
+        this.bot.logger.info(this.bot.isMobile, 'QUERY-MANAGER', `热搜词使用清单 | 共 ${total} 个词`)
+
+        if (expanded.length) {
+            const shown = expanded.slice(0, MAX_DISPLAY)
+            const overflow = expanded.length - shown.length
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'QUERY-MANAGER',
+                `可扩展的热搜词（${expanded.length} 个，已获得建议/相关词）:\n` +
+                    shown.map(r => `  ✓ "${r.topic}" (建议=${r.suggCount}, 相关=${r.relCount})`).join('\n') +
+                    (overflow > 0 ? `\n  ... 还有 ${overflow} 个` : '')
+            )
+        }
+
+        if (unexpanded.length) {
+            const shown = unexpanded.slice(0, MAX_DISPLAY)
+            const overflow = unexpanded.length - shown.length
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'QUERY-MANAGER',
+                `未扩展的热搜词（${unexpanded.length} 个，Bing 无建议/相关，将直接作为搜索词）:\n` +
+                    shown.map(r => `  ✗ "${r.topic}"`).join('\n') +
+                    (overflow > 0 ? `\n  ... 还有 ${overflow} 个` : '')
+            )
+        }
+
+        if (tail.length) {
+            const shown = tail.slice(0, MAX_DISPLAY)
+            const overflow = tail.length - shown.length
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'QUERY-MANAGER',
+                `直通热搜词（${tail.length} 个，超过 LIMIT 直接使用）:\n` +
+                    shown.map(t => `  • "${t}"`).join('\n') +
+                    (overflow > 0 ? `\n  ... 还有 ${overflow} 个` : '')
+            )
+        }
     }
 
     private normalizeAndDedupe(queries: string[]): string[] {
@@ -273,26 +376,11 @@ export class QueryCore {
             }
 
             const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
-            const suggestions =
+            // 静默返回：空结果和错误的统计交给调用方 buildRelatedClusters 处理
+            return (
                 response.data.suggestionGroups?.[0]?.searchSuggestions?.map((x: { query: string }) => x.query) ?? []
-
-            if (!suggestions.length) {
-                this.bot.logger.debug(
-                    this.bot.isMobile,
-                    'SEARCH-BING-SUGGESTIONS',
-                    `空建议 | 查询="${query}" | 语言=${langCode}`
-                )
-            }
-
-            return suggestions
-        } catch (error) {
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                'SEARCH-BING-SUGGESTIONS',
-                `请求失败 | 查询="${query}" | 语言=${langCode} | 错误=${
-                    error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ''}` : String(error)
-                }`
             )
+        } catch {
             return []
         }
     }
@@ -309,25 +397,8 @@ export class QueryCore {
 
             const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
             const related = response.data?.[1]
-            const out = Array.isArray(related) ? related : []
-
-            if (!out.length) {
-                this.bot.logger.debug(
-                    this.bot.isMobile,
-                    'SEARCH-BING-RELATED',
-                    `空相关术语 | 查询="${query}"`
-                )
-            }
-
-            return out
-        } catch (error) {
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                'SEARCH-BING-RELATED',
-                `请求失败 | 查询="${query}" | 错误=${
-                    error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ''}` : String(error)
-                }`
-            )
+            return Array.isArray(related) ? related : []
+        } catch {
             return []
         }
     }
