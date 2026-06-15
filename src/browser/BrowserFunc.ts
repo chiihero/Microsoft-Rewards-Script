@@ -103,7 +103,7 @@ export default class BrowserFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'GET-PANEL-FLYOUT-DATA',
-                `Error fetching dashboard data: ${error instanceof Error ? error.message : String(error)}`
+                `获取面板数据出错: ${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }
@@ -331,7 +331,7 @@ export default class BrowserFunc {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',
-                    'Skipping: Request token not available, this action requires it!'
+                    '跳过：请求令牌不可用，此操作需要它！'
                 )
                 return
             }
@@ -365,7 +365,7 @@ export default class BrowserFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                `Error enabling streak protection: ${error instanceof Error ? error.message : String(error)}`
+                `启用连击保护出错: ${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }
@@ -382,7 +382,7 @@ export default class BrowserFunc {
 
             await this.bot.utils.wait(2000)
         } catch (error) {
-            this.bot.logger.error(this.bot.isMobile, 'CLOSE-BROWSER', `Failed to save session: ${error}`)
+            this.bot.logger.error(this.bot.isMobile, 'CLOSE-BROWSER', `保存会话失败: ${error}`)
         } finally {
             try {
                 await browser.close()
@@ -396,7 +396,7 @@ export default class BrowserFunc {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'CLOSE-BROWSER',
-                    'Shutdown encountered an error, but process exiting.'
+                    '关闭时遇到错误，但进程正在退出。'
                 )
             }
         }

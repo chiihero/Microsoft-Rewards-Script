@@ -178,7 +178,7 @@ export class Workers {
         const pointsActivity = data.pointClaimBannerPromotion
 
         if (!pointsActivity) {
-            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', 'No claim bonus points banner found')
+            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', '未找到领取奖励积分的横幅')
             return
         }
 
@@ -186,7 +186,7 @@ export class Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Bonus points have already been claimed | offerId=${pointsActivity.offerId}`
+                `奖励积分已被领取 | offerId=${pointsActivity.offerId}`
             )
             return
         }
@@ -196,7 +196,7 @@ export class Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'CLAIM-BONUS-POINTS',
-            `Bonus points have been claimed | title="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
+                `已领取奖励积分 | 标题="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
         )
     }
 

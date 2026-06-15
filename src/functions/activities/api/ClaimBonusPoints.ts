@@ -15,7 +15,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                'Skipping: Request token not available, this activity requires it!'
+                '跳过：请求令牌不可用，此活动需要它！'
             )
             return
         }
@@ -23,7 +23,7 @@ export class ClaimBonusPoints extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'CLAIM-BONUS-POINTS',
-            `Starting ClaimBonusPoints | geo=${this.bot.userData.geoLocale} | oldBalance=${this.oldBalance}`
+            `开始领取奖励积分 | 地区=${this.bot.userData.geoLocale} | 旧余额=${this.oldBalance}`
         )
 
         try {
@@ -40,7 +40,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Prepared ClaimBonusPoints headers | cookieLength=${this.cookieHeader.length} | fingerprintHeaderKeys=${Object.keys(this.fingerprintHeader).length}`
+                `准备好的领取奖励积分头部信息 | cookie长度=${this.cookieHeader.length} | 指纹头部键=${Object.keys(this.fingerprintHeader).length}`
             )
 
             const formData = new URLSearchParams({
@@ -51,7 +51,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Prepared ClaimBonusPoints form data | timeZone=${this.bot.userData.timezoneOffset} | activityAmount=1`
+                `准备好的领取奖励积分表单数据 | 时区=${this.bot.userData.timezoneOffset} | 活动量=1`
             )
 
             const request: AxiosRequestConfig = {
@@ -69,7 +69,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Sending ClaimBonusPoints request | url=${request.url}`
+                `发送领取奖励积分请求 | url=${request.url}`
             )
 
             const response = await this.bot.axios.request(request)
@@ -77,7 +77,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Received ClaimBonusPoints response | status=${response.status}`
+                `收到领取奖励积分响应 | 状态=${response.status}`
             )
 
             const newBalance = await this.bot.browser.func.getCurrentPoints()
@@ -86,7 +86,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Balance delta after ClaimBonusPoints | oldBalance=${this.oldBalance} | newBalance=${newBalance} | gainedPoints=${this.gainedPoints}`
+                `领取奖励积分后余额差额 | 旧余额=${this.oldBalance} | 新余额=${newBalance} | 获得积分=${this.gainedPoints}`
             )
 
             if (this.gainedPoints > 0) {
@@ -96,25 +96,25 @@ export class ClaimBonusPoints extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'CLAIM-BONUS-POINTS',
-                    `Completed ClaimBonusPoints | status=${response.status} | gainedPoints=${this.gainedPoints} | newBalance=${newBalance}`,
+                    `完成领取奖励积分 | 状态=${response.status} | 获得积分=${this.gainedPoints} | 新余额=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'CLAIM-BONUS-POINTS',
-                    `Failed ClaimBonusPoints with no points | status=${response.status} | oldBalance=${this.oldBalance} | newBalance=${newBalance}`
+                    `领取奖励积分失败，没有积分 | 状态=${response.status} | 旧余额=${this.oldBalance} | 新余额=${newBalance}`
                 )
             }
 
-            this.bot.logger.debug(this.bot.isMobile, 'CLAIM-BONUS-POINTS', `Waiting after ClaimBonusPoints`)
+            this.bot.logger.debug(this.bot.isMobile, 'CLAIM-BONUS-POINTS', `领取奖励积分后等待`)
 
             await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 10000))
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Error in doClaimBonusPoints | message=${error instanceof Error ? error.message : String(error)}`
+                `doClaimBonusPoints中出错 | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

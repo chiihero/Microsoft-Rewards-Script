@@ -189,7 +189,7 @@ function fillMissing(data: unknown, defaults: unknown, path = ''): unknown {
     if (!isPlainObject(defaults)) return data
     if (!isPlainObject(data)) {
         if (data === undefined) {
-            console.warn(`[Config] "${path || '<root>'}" missing, using default`)
+            console.warn(`[Config] "${path || '<root>'}" 缺失，使用默认值`)
             return defaults
         }
         return data
@@ -198,7 +198,7 @@ function fillMissing(data: unknown, defaults: unknown, path = ''): unknown {
     for (const key of Object.keys(defaults)) {
         const p = path ? `${path}.${key}` : key
         if (!(key in result)) {
-            console.warn(`[Config] "${p}" not found, using default: ${JSON.stringify(defaults[key])}`)
+            console.warn(`[Config] "${p}" 未找到，使用默认值: ${JSON.stringify(defaults[key])}`)
             result[key] = defaults[key]
         } else if (isPlainObject(defaults[key])) {
             result[key] = fillMissing(result[key], defaults[key], p)
@@ -216,14 +216,14 @@ export function validateConfig(data: unknown): Config {
     for (const issue of result.error.issues) {
         const def = getByPath(defaultConfig, issue.path as (string | number)[])
         console.warn(
-            `[Config] "${issue.path.join('.') || '<root>'}" invalid (${issue.message}), using default: ${JSON.stringify(def)}`
+            `[Config] "${issue.path.join('.') || '<root>'}" 无效 (${issue.message})，使用默认值: ${JSON.stringify(def)}`
         )
         patched = setByPath(patched, issue.path as (string | number)[], def)
     }
     result = ConfigSchema.safeParse(patched)
     if (!result.success) {
-        console.error('[Config] still invalid after applying defaults:', result.error.issues)
-        throw new Error('Config validation failed')
+        console.error('[Config] 应用默认值后仍然无效:', result.error.issues)
+        throw new Error('配置校验失败')
     }
     return result.data as Config
 }
@@ -236,19 +236,19 @@ export function validateAccounts(data: unknown): Account[] {
         const path = issue.path.join('.') || '<root>'
         if (issue.code === 'invalid_type') {
             if (issue.input === undefined) {
-                console.error(`[Accounts] "${path}" is missing (expected ${issue.expected})`)
+                console.error(`[Accounts] "${path}" 缺失 (期望 ${issue.expected})`)
             } else {
                 console.error(
-                    `[Accounts] "${path}" has wrong type: expected ${issue.expected}, got ${typeof issue.input}`
+                    `[Accounts] "${path}" 类型错误: 期望 ${issue.expected}，实际 ${typeof issue.input}`
                 )
             }
         } else if (issue.code === 'invalid_union') {
-            console.error(`[Accounts] "${path}" does not match any allowed type: ${issue.message}`)
+            console.error(`[Accounts] "${path}" 不匹配任何允许的类型: ${issue.message}`)
         } else {
-            console.error(`[Accounts] "${path}" ${issue.message} (code: ${issue.code})`)
+            console.error(`[Accounts] "${path}" ${issue.message} (代码: ${issue.code})`)
         }
     }
-    throw new Error(`Accounts validation failed: ${result.error.issues.length} issue(s) — see logs above`)
+    throw new Error(`账户校验失败: ${result.error.issues.length} 个问题 — 请查看上方日志`)
 }
 
 export function checkNodeVersion(): void {
