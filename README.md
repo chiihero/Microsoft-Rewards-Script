@@ -60,10 +60,9 @@ docker compose up -d
 | `baseURL` | Microsoft Rewards base URL | `https://rewards.bing.com` |
 | `sessionPath` | 用于存储浏览器会话的文件夹 | `sessions` |
 | `headless` | 在后台运行浏览器 | `false`（可见） |
-| `dryRun` | 模拟执行而不运行任务 | `false` |
-| `parallel` | 同时运行移动/桌面任务 | `true` |
-| `runOnZeroPoints` | 在没有可用积分时继续 | `false` |
 | `clusters` | 并发账户实例数 | `1` |
+| `errorDiagnostics` | 出错时自动截图诊断 | `true` |
+| `debugLogs` | 输出 DEBUG 级别日志（也可用 `-dev` 启动参数临时开启） | `false` |
 
 
 ### Fingerprinting / 指纹识别
@@ -77,25 +76,30 @@ docker compose up -d
 | 设置 | 描述 | 默认值 |
 |---------|-------------|---------|
 | `workers.doDailySet` | 完成每日集活动 | `true` |
+| `workers.doSpecialPromotions` | 完成特殊促销活动 | `true` |
 | `workers.doMorePromotions` | 完成促销优惠 | `true` |
+| `workers.doClaimBonusPoints` | 领取 dashboard 上的奖励积分（新版 UI 走 Server Action） | `true` |
 | `workers.doPunchCards` | 完成打卡活动 | `true` |
+| `workers.doAppPromotions` | 完成 App 端活动（ReadToEarn / DailyCheckIn 等） | `true` |
 | `workers.doDesktopSearch` | 执行桌面搜索 | `true` |
 | `workers.doMobileSearch` | 执行移动搜索 | `true` |
 | `workers.doDailyCheckIn` | 完成每日签到 | `true` |
 | `workers.doReadToEarn` | 完成阅读赚取活动 | `true` |
-| `workers.doClaimBonusPoints` | 领取 dashboard 上的奖励积分（新版 UI 走 Server Action） | `true` |
 | `ensureStreakProtection` | 启用连击保护（账户级配置，新版 UI 走 Server Action） | `true` |
 
 ### Search / 搜索
 | 设置 | 描述 | 默认值 |
 |---------|-------------|---------|
 | `searchOnBingLocalQueries` | 使用本地查询 vs. 获取的查询 | `false` |
-| `searchSettings.useGeoLocaleQueries` | 生成基于位置的查询 | `false` |
 | `searchSettings.scrollRandomResults` | 随机滚动搜索结果 | `true` |
 | `searchSettings.clickRandomResults` | 点击随机结果链接 | `true` |
-| `searchSettings.searchDelay` | 搜索之间的延迟（最小/最大） | `3-5 分钟` |
-| `searchSettings.retryMobileSearchAmount` | 移动搜索重试次数 | `2` |
-| `searchSettings.queryEngines` | 查询源及顺序（数组），决定从哪些源获取搜索词 | `['google','wikipedia','reddit','local']` |
+| `searchSettings.parallelSearching` | 桌面端/移动端搜索并行执行 | `false` |
+| `searchSettings.queryEngines` | 查询源及顺序（数组），决定从哪些源获取搜索词 | `['china', 'local']` |
+| `searchSettings.searchResultVisitTime` | 访问搜索结果页的停留时间 | `10sec` |
+| `searchSettings.searchDelay` | 搜索之间的延迟（最小/最大） | `30sec - 1min` |
+| `searchSettings.readDelay` | 阅读赚取活动的阅读间隔（最小/最大） | `30sec - 1min` |
+
+> 注：示例配置 `config.example.json` 里 `searchDelay` 为 `6-12min`、`readDelay` 为 `6-11min`、`searchResultVisitTime` 为 `20sec`，比 Validator 默认值更保守，适合长时间挂机场景。
 
 #### queryEngines 查询源说明
 `searchSettings.queryEngines` 决定从哪些源获取搜索词，按数组顺序尝试。可选值：
@@ -118,34 +122,47 @@ docker compose up -d
 - **本地兜底**：`src/functions/search-queries.json` 提供 392 个标准查询词作为补充
 
 
-### Humanization / 人性化
-| 设置 | 描述 | 默认值 |
-|----------|-------------|----------|
-| `humanization.enabled` | 启用人类行为 | `true` |
-| `stopOnBan` | 封禁时立即停止 | `true` |
-| `immediateBanAlert` | 被封禁时立即提醒 | `true` |
-| `actionDelay.min` | 每个操作的最小延迟(毫秒) | `500` |
-| `actionDelay.max` | 每个操作的最大延迟(毫秒) | `2200` |
-| `gestureMoveProb` | 随机鼠标移动几率 | `0.65` |
-| `gestureScrollProb` | 随机滚动几率 | `0.4` |
-
 ### 高级设置
 | 设置 | 描述 | 默认值 |
 |---------|-------------|---------|
-| `globalTimeout` | 操作超时持续时间 | `30s` |
-| `logExcludeFunc` | 从日志中排除的函数 | `SEARCH-CLOSE-TABS` |
-| `webhookLogExcludeFunc` | 从 webhooks 中排除的函数 | `SEARCH-CLOSE-TABS` |
-| `proxy.proxyGoogleTrends` | 代理 Google Trends 请求 | `true` |
-| `proxy.proxyBingTerms` | 代理 Bing Terms 请求 | `true` |
+| `globalTimeout` | 操作超时持续时间 | `30sec` |
 | `proxy.queryEngine` | 代理查询引擎请求（google/wikipedia/reddit 等需翻墙的源；china 源走 gmya.net 国内直连，无需开） | `false` |
+| `consoleLogFilter` | 控制台日志过滤（按级别/关键词/正则 白名单或黑名单） | 见下方说明 |
+| `webhook.webhookLogFilter` | Webhook 推送日志过滤（结构同 consoleLogFilter） | 见下方说明 |
+
+#### 日志过滤（consoleLogFilter / webhookLogFilter）
+两个字段结构相同，用于过滤输出到控制台 / webhook 的日志：
+```json
+{
+    "enabled": false,
+    "mode": "whitelist",
+    "levels": ["error", "warn"],
+    "keywords": ["starting account"],
+    "regexPatterns": []
+}
+```
+- `mode`：`whitelist`（只输出匹配的）或 `blacklist`（排除匹配的）
+- `levels`：日志级别筛选（`debug`/`info`/`warn`/`error`）
+- `keywords`：日志消息包含这些关键词则命中
+- `regexPatterns`：正则匹配
 
 ### Webhook 设置
+本项目支持三种推送渠道（均在 `webhook` 对象下，可同时开启多个）：
+
 | 设置 | 描述 | 默认值 |
 |---------|-------------|---------|
-| `webhook.enabled` | 启用 Discord 通知 | `false` |
-| `webhook.url` | Discord webhook URL | `null` |
-| `conclusionWebhook.enabled` | 启用仅摘要 webhook | `false` |
-| `conclusionWebhook.url` | 摘要 webhook URL | `null` |
+| `webhook.discord.enabled` | 启用 Discord 推送 | `false` |
+| `webhook.discord.url` | Discord webhook URL | `""` |
+| `webhook.ntfy.enabled` | 启用 ntfy 推送 | `false` |
+| `webhook.ntfy.url` | ntfy 服务器 URL | `""` |
+| `webhook.ntfy.topic` | ntfy 主题 | `""` |
+| `webhook.ntfy.token` | ntfy 认证 token | `""` |
+| `webhook.ntfy.priority` | ntfy 优先级（1-5） | `3` |
+| `webhook.pushplus.enabled` | 启用 PushPlus 推送（国内） | `false` |
+| `webhook.pushplus.token` | PushPlus token | `""` |
+| `webhook.pushplus.template` | PushPlus 模板（`txt`/`html`/`markdown`） | `txt` |
+
+> **国内推荐**：PushPlus（微信推送，无需翻墙）。Discord/ntfy 需要能访问对应服务。
 
 
 ### 新版 UI 兼容性（Server Action）
@@ -208,8 +225,9 @@ docker compose up -d
 
 **通知与监控：**
 - ✅ Discord Webhook 集成
-- ✅ 专用摘要 Webhook
-- ✅ 全面日志记录
+- ✅ ntfy 推送支持
+- ✅ PushPlus 推送支持（国内微信推送）
+- ✅ 全面日志记录（带日志过滤、本地文件持久化）
 - ✅ Docker 支持与监控
 
 
