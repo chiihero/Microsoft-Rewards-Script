@@ -327,7 +327,8 @@ export default class BrowserFunc {
 
     async ensureStreakProtection() {
         try {
-            if (!this.bot.requestToken && this.bot.rewardsVersion === 'legacy') {
+            // 新版 UI(modern) 取不到 requestToken，带空 token 请求会 400，无 token 直接跳过
+            if (!this.bot.requestToken) {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',

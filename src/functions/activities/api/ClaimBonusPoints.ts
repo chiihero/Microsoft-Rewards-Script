@@ -11,7 +11,8 @@ export class ClaimBonusPoints extends Workers {
     private oldBalance: number = this.bot.userData.currentPoints
 
     public async claimBonusPoints() {
-        if (!this.bot.requestToken && this.bot.rewardsVersion === 'legacy') {
+        // 新版 UI(modern) 取不到 requestToken，带空 token 请求会 400，无 token 直接跳过
+        if (!this.bot.requestToken) {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
