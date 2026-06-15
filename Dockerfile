@@ -93,7 +93,6 @@ RUN mkdir -p ./dist/config \
 
 # Copy runtime scripts with proper permissions from the start
 COPY --chmod=755 scripts/docker/run_daily.sh ./scripts/docker/run_daily.sh
-COPY --chmod=755 scripts/docker/run_daily_cron.sh ./scripts/docker/run_daily_cron.sh
 COPY --chmod=755 scripts/docker/log-forwarder.sh ./scripts/docker/log-forwarder.sh
 COPY --chmod=644 src/crontab.template /etc/cron.d/microsoft-rewards-cron.template
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
