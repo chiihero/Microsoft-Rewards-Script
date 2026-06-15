@@ -494,64 +494,6 @@ export default class BrowserFunc {
         }
     }
 
-    async ensureStreakProtection() {
-        try {
-            // 优先尝试新版 Server Action（新版 UI 不再有 requestToken）
-            if (this.bot.rewardsVersion === 'modern' || !this.bot.requestToken) {
-                this.bot.logger.info(
-                    this.bot.isMobile,
-                    'ENABLE-STREAK-PROTECTION',
-                    '新版 UI：通过 Server Action 启用连击保护'
-                )
-                // body=[true] 表示开启；服务端是幂等的，已开启再调用也无害
-                const ok = await this.callServerAction('toggleStreakProtection', [true], 'ENABLE-STREAK-PROTECTION')
-                if (ok) {
-                    this.bot.logger.info(
-                        this.bot.isMobile,
-                        'ENABLE-STREAK-PROTECTION',
-                        '连击保护已启用（Server Action）',
-                        'green'
-                    )
-                }
-                return
-            }
-
-            // 旧版 UI 走 REST API（需要 requestToken）
-            const formData = new URLSearchParams({
-                isOn: 'true',
-                activityAmount: '1',
-                timeZone: this.bot.userData.timezoneOffset,
-                __RequestVerificationToken: this.bot.requestToken
-            })
-
-            // We don't actually check if it's already on or not, we just always send the "turn on payloud" :)
-            const request: AxiosRequestConfig = {
-                url: 'https://rewards.bing.com/api/togglestreakasync?X-Requested-With=XMLHttpRequest',
-                method: 'POST',
-                headers: {
-                    ...(this.bot.fingerprint?.headers ?? {}),
-                    Cookie: this.buildCookieHeader(this.bot.cookies.mobile, [
-                        'bing.com',
-                        'live.com',
-                        'microsoftonline.com'
-                    ]),
-                    Referer: 'https://rewards.bing.com/',
-                    Origin: 'https://rewards.bing.com'
-                },
-                data: formData
-            }
-
-            await this.bot.axios.request(request)
-        } catch (error) {
-            this.bot.logger.error(
-                this.bot.isMobile,
-                'ENABLE-STREAK-PROTECTION',
-                `启用连击保护出错: ${error instanceof Error ? error.message : String(error)}`
-            )
-            throw error
-        }
-    }
-
     async closeBrowser(browser: BrowserContext, email: string) {
         const rootBrowser = (browser as any).browser?.() || null
 

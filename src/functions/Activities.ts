@@ -14,6 +14,7 @@ import { Quiz } from './activities/api/Quiz'
 import { FindClippy } from './activities/api/FindClippy'
 import { DoubleSearchPoints } from './activities/api/DoubleSearchPoints'
 import { ClaimBonusPoints } from './activities/api/ClaimBonusPoints'
+import { StreakProtection } from './activities/api/StreakProtection'
 
 // Browser
 import { SearchOnBing } from './activities/browser/SearchOnBing'
@@ -96,6 +97,11 @@ export default class Activities {
     doClaimBonusPoints = async (): Promise<void> => {
         const claimBonusPoints = new ClaimBonusPoints(this.bot)
         await claimBonusPoints.claimBonusPoints()
+    }
+
+    doStreakProtection = async (): Promise<void> => {
+        const streakProtection = new StreakProtection(this.bot)
+        await streakProtection.ensureStreakProtection()
     }
 
     // App Activities

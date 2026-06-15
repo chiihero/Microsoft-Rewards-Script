@@ -521,7 +521,7 @@ export class MicrosoftRewardsBot {
 
                 // Ensure streak protection is true if enabled
                 if (this.config.ensureStreakProtection) {
-                    await this.browser.func.ensureStreakProtection()
+                    await this.activities.doStreakProtection()
                 }
                 if (this.config.workers.doClaimBonusPoints) await this.workers.doClaimBonusPoints(data)
                 if (this.config.workers.doAppPromotions) await this.workers.doAppPromotions(appData)
