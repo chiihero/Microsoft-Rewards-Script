@@ -25,8 +25,8 @@
         "queryEngines": ["china", "local"],
         "searchResultVisitTime": "20sec",
         "searchDelay": {
-            "min": "5min",
-            "max": "9min"
+            "min": "6min",
+            "max": "12min"
         },
         "readDelay": {
             "min": "6min",
