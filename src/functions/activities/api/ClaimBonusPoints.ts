@@ -11,16 +11,6 @@ export class ClaimBonusPoints extends Workers {
     private oldBalance: number = this.bot.userData.currentPoints
 
     public async claimBonusPoints() {
-        // 新版 UI(modern) 取不到 requestToken，带空 token 请求会 400，无 token 直接跳过
-        if (!this.bot.requestToken) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'CLAIM-BONUS-POINTS',
-                '跳过：请求令牌不可用，此活动需要它！'
-            )
-            return
-        }
-
         this.bot.logger.info(
             this.bot.isMobile,
             'CLAIM-BONUS-POINTS',
@@ -28,6 +18,49 @@ export class ClaimBonusPoints extends Workers {
         )
 
         try {
+            // 新版 UI（modern）：走 Next.js Server Action（认证靠 Cookie，无需 requestToken）
+            if (this.bot.rewardsVersion === 'modern' || !this.bot.requestToken) {
+                const ok = await this.bot.browser.func.callServerAction(
+                    'claimBonusPoints',
+                    [],
+                    'CLAIM-BONUS-POINTS'
+                )
+
+                if (!ok) {
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'CLAIM-BONUS-POINTS',
+                        'Server Action 调用未成功（可能是部署版本不匹配或网络错误），跳过'
+                    )
+                    return
+                }
+
+                // 通过余额差确认实际获得积分
+                const newBalance = await this.bot.browser.func.getCurrentPoints()
+                this.gainedPoints = newBalance - this.oldBalance
+
+                if (this.gainedPoints > 0) {
+                    this.bot.userData.currentPoints = newBalance
+                    this.bot.userData.gainedPoints = (this.bot.userData.gainedPoints ?? 0) + this.gainedPoints
+                    this.bot.logger.info(
+                        this.bot.isMobile,
+                        'CLAIM-BONUS-POINTS',
+                        `完成领取奖励积分（Server Action） | 获得积分=${this.gainedPoints} | 新余额=${newBalance}`,
+                        'green'
+                    )
+                } else {
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'CLAIM-BONUS-POINTS',
+                        `领取奖励积分完成但无积分变化 | 旧余额=${this.oldBalance} | 新余额=${newBalance}`
+                    )
+                }
+
+                await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 10000))
+                return
+            }
+
+            // 旧版 UI：走 REST API（需要 requestToken）
             this.cookieHeader = this.bot.browser.func.buildCookieHeader(
                 this.bot.isMobile ? this.bot.cookies.mobile : this.bot.cookies.desktop,
                 ['bing.com', 'live.com', 'microsoftonline.com']

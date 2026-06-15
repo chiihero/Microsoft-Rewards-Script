@@ -92,6 +92,13 @@ export class MicrosoftRewardsBot {
     public cookies: { mobile: Cookie[]; desktop: Cookie[] } // 移动端和桌面端的cookies
     public fingerprint!: BrowserFingerprintWithHeaders // 浏览器指纹
 
+    // 新版 UI（modern dashboard）使用 Next.js Server Actions 而非 REST API。
+    // next-action hash 在编译时生成，绑定到具体部署版本（dpl）。
+    // 这里记录当前抓取到的部署 ID，用于在调用前做版本守卫。
+    public serverActions: {
+        deploymentId: string | null // 从 dashboard HTML 提取的 dpl（如 "20260612-3"）
+    } = { deploymentId: null }
+
     private pointsCanCollect = 0 // 可收集的积分
 
     private activeWorkers: number // 活跃的工作进程数
@@ -473,6 +480,17 @@ export class MicrosoftRewardsBot {
                 const data: DashboardData = await this.browser.func.getDashboardData()
                 const appData: AppDashboardData = await this.browser.func.getAppDashboardData()
                 this.panelData = await this.browser.func.getPanelFlyoutData()
+
+                // 新版 UI 用 Next.js Server Actions，需要从 dashboard 页面提取部署 ID
+                // 作为版本守卫（hash 跟部署版本绑定，不一致就降级跳过，避免 400）
+                this.serverActions.deploymentId = await this.browser.func.extractDeploymentId(this.mainMobilePage)
+                if (this.serverActions.deploymentId) {
+                    this.logger.info(
+                        'main',
+                        'SERVER-ACTION',
+                        `新版仪表板部署 ID: ${this.serverActions.deploymentId} | Server Action 支持版本: ${BrowserFunc.SUPPORTED_DEPLOYMENT_ID}`
+                    )
+                }
                 // 设置地理位置
                 this.userData.geoLocale =
                     account.geoLocale === 'auto' ? data.userProfile.attributes.country : account.geoLocale.toLowerCase()
