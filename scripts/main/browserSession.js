@@ -140,7 +140,7 @@ async function main() {
             })
         })
 
-        log('SUCCESS', '指纹已注入到浏览器上下文中')
+        log('SUCCESS', '指纹已应用到浏览器上下文中')
     } else {
         context = await browser.newContext({
             viewport: isMobile ? { width: 375, height: 667 } : { width: 1366, height: 768 }

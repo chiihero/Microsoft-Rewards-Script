@@ -17,12 +17,12 @@ export default class BrowserFunc {
     /**
      * 新版 UI（modern dashboard）基于 Next.js App Router，业务操作走 Server Actions。
      * next-action hash 在编译时生成，绑定到具体部署版本（dpl）。
-     * 下面是抓包得到的当前部署版本的 hash 表；部署更新后 hash 会失效，由调用方做版本守卫。
+     * 下面是通过网络请求记录得到的当前部署版本的 hash 表；部署更新后 hash 会失效，由调用方做版本守卫。
      */
-    // 抓包时的部署版本 ID（用于和当前页面的 dpl 比对，不一致则降级跳过）
+    // 记录时的部署版本 ID（用于和当前页面的 dpl 比对，不一致则降级跳过）
     public static readonly SUPPORTED_DEPLOYMENT_ID = '20260612-3'
 
-    // Server Action hash 表（在 SUPPORTED_DEPLOYMENT_ID 下抓包得到）
+    // Server Action hash 表（在 SUPPORTED_DEPLOYMENT_ID 下记录得到）
     public static readonly SERVER_ACTION_HASHES = {
         // 连击保护 toggle：body=[true] 开启 / [false] 关闭
         toggleStreakProtection: '40eddd39784c87de1e9c077e72117f3ed9a016a2d2',
@@ -445,7 +445,7 @@ export default class BrowserFunc {
                     'Content-Type': 'text/plain;charset=UTF-8',
                     'next-action': actionHash,
                     // next-router-state-tree 是 Next.js App Router 内部状态，服务端用于路由匹配
-                    // 这里传一个最小化的 dashboard 路由树（抓包得到的结构）
+                    // 这里传一个最小化的 dashboard 路由树（通过请求分析得到的结构）
                     'next-router-state-tree':
                         '%5B%22%22%2C%7B%22children%22%3A%5B%22(nav)%22%2C%7B%22children%22%3A%5B%22dashboard%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C16%5D',
                     'x-deployment-id': BrowserFunc.SUPPORTED_DEPLOYMENT_ID,

@@ -84,7 +84,7 @@ class Browser {
 
             // 获取或生成浏览器指纹
             const fingerprint = sessionData.fingerprint ?? (await this.generateFingerprint(this.bot.isMobile))
-            // 创建带注入指纹的浏览器上下文
+            // 创建带指纹的浏览器上下文
             const context = await newInjectedContext(browser as any, {
                 fingerprint,
                 newContextOptions: {

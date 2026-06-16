@@ -322,7 +322,7 @@ export class Login {
             }
 
             case 'GET_A_CODE': {
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '尝试绕过"获取代码"页面')
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '尝试跳过"获取代码"页面')
 
                 // 尝试查找"其他登录方式"链接
                 const otherWaysLink = await page
@@ -371,7 +371,7 @@ export class Login {
                     return true
                 }
 
-                this.bot.logger.warn(this.bot.isMobile, 'LOGIN', '找不到绕过获取代码页面的方法')
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN', '找不到跳过获取代码页面的方法')
                 return true
             }
 
