@@ -82,7 +82,12 @@ export const ConfigSchema = z.object({
         queryEngines: z.array(QueryEngineSchema),
         searchResultVisitTime: NumberOrString,
         searchDelay: DelaySchema,
-        readDelay: DelaySchema
+        readDelay: DelaySchema,
+        chinaApi: z
+            .object({
+                appkey: z.string().optional()
+            })
+            .optional()
     }),
     debugLogs: z.boolean(),
     proxy: z.object({
@@ -141,7 +146,8 @@ const defaultConfig: Config = {
         queryEngines: ['google', 'wikipedia', 'reddit', 'local'],
         searchResultVisitTime: '10sec',
         searchDelay: { min: '30sec', max: '1min' },
-        readDelay: { min: '30sec', max: '1min' }
+        readDelay: { min: '30sec', max: '1min' },
+        chinaApi: { appkey: '' }
     },
     debugLogs: false,
     proxy: { queryEngine: true },

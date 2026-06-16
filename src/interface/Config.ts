@@ -25,6 +25,13 @@ export interface ConfigSearchSettings {
     searchResultVisitTime: number | string
     searchDelay: ConfigDelay
     readDelay: ConfigDelay
+    /**
+     * 中国热搜源（gmya.net）配置。
+     * appkey 留空走免费档（有频率限制）；填入则带 appkey 请求以解除限流。
+     */
+    chinaApi?: {
+        appkey?: string
+    }
 }
 
 export interface ConfigDelay {

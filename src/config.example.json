@@ -35,6 +35,9 @@
         "readDelay": {
             "min": "6min",
             "max": "11min"
+        },
+        "chinaApi": {
+            "appkey": ""
         }
     },
     "debugLogs": true,

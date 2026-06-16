@@ -5,6 +5,18 @@ import type { GoogleSearch, GoogleTrendsResponse, RedditListing, WikipediaTopRes
 import type { MicrosoftRewardsBot } from '../index'
 import { QueryEngine } from '../interface/Config'
 
+/**
+ * 中国热搜源触发了 gmya.net 免费档的频率限制。
+ * 携带 rateLimited 标记，供 getChinaTrends 做退避决策。
+ */
+class ChinaApiRateLimitError extends Error {
+    rateLimited = true
+    constructor(source: string, detail: string) {
+        super(`${source} 触发限流：${detail}（建议配置 searchSettings.chinaApi.appkey）`)
+        this.name = 'ChinaApiRateLimitError'
+    }
+}
+
 export class QueryCore {
     constructor(private bot: MicrosoftRewardsBot) {}
 
@@ -560,9 +572,12 @@ export class QueryCore {
     /**
      * 获取中国地区的热门搜索词（百度、抖音、微博、头条、知乎等）。
      * 数据源：gmya.net 热门词 API。
-     * 策略：随机选取 2 个源聚合结果（避免每个账号都用同一个源，
-     *       分散 API 负载、增加搜索词多样性）；如果某个源失败，
-     *       自动 fallback 到剩余源，确保至少拿到 1 个源的数据。
+     * 策略：
+     *   - appkey 配置在 searchSettings.chinaApi.appkey；留空走免费档。
+     *   - 随机选取若干源聚合结果，分散 API 负载、增加搜索词多样性。
+     *   - 免费档（无 appkey）有激进的频率限制：源与源之间插入随机退避，
+     *     命中限流（403）后对后续源做指数退避；有 appkey 则不退避。
+     *   - 某个源失败时自动 fallback 到剩余源，确保至少拿到 1 个源的数据。
      *
      * @param geoLocale - 地理区域代码，默认为'CN'
      * @returns 热搜标题字符串数组
@@ -570,10 +585,14 @@ export class QueryCore {
     async getChinaTrends(geoLocale: string = 'CN'): Promise<string[]> {
         const allSources = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot', 'ZhiHuHot']
         const baseUrl = 'https://api.gmya.net/Api/'
-        // appkey 留空使用免费档；未来可迁移到 config.queryEngine.chinaApi.appkey
-        const appkey = ''
-        // 随机选取的源数量：2 个，兼顾多样性和请求开销
-        const pickedCount = 2
+        // appkey 来自配置；留空走免费档（有频率限制），填入则解除限流
+        const appkey = this.bot.config.searchSettings.chinaApi?.appkey?.trim() ?? ''
+        const hasAppkey = appkey.length > 0
+        // 免费档容易被限流：减少首选源数量以降低触发面；有 appkey 则保持 2 个兼顾多样性
+        const pickedCount = hasAppkey ? 2 : 1
+        // 免费档源间退避参数（毫秒）；有 appkey 不需要退避
+        const backoffMin = 1200
+        const backoffMax = 2500
 
         // 随机打乱源顺序，取前 pickedCount 个作为首选；其余作为 fallback 备用
         const shuffled = this.bot.utils.shuffleArray([...allSources])
@@ -583,14 +602,27 @@ export class QueryCore {
         this.bot.logger.info(
             this.bot.isMobile,
             'SEARCH-CHINA-TRENDS',
-            `正在获取中国热搜 | 地区=${geoLocale} | 首选源=${picked.join(', ')} | 备用源=${fallback.length}个`
+            `正在获取中国热搜 | 地区=${geoLocale} | appkey=${hasAppkey ? '已配置' : '免费档'} | 首选源=${picked.join(', ')} | 备用源=${fallback.length}个`
         )
+
+        /**
+         * 免费档在源与源之间插入随机退避，降低连续请求触发 403 限流的概率。
+         * 命中限流后对后续源做指数退避（multiplier 递增）。
+         * @param multiplier 基础退避倍数，限流后递增
+         */
+        const maybeBackoff = async (multiplier: number): Promise<void> => {
+            if (hasAppkey) return
+            await this.bot.utils.waitRandom(backoffMin * multiplier, backoffMax * multiplier)
+        }
 
         const titles = new Set<string>()
         const failedSources: string[] = []
+        let backoffMultiplier = 1 // 限流命中后递增
 
         // 先依次尝试首选源
-        for (const source of picked) {
+        for (let i = 0; i < picked.length; i++) {
+            if (i > 0) await maybeBackoff(backoffMultiplier)
+            const source = picked[i]!
             try {
                 const result = await this.fetchChinaHotWords(this.buildChinaApiUrl(baseUrl, source, appkey), source)
                 if (result.length) {
@@ -606,6 +638,7 @@ export class QueryCore {
                 }
             } catch (error) {
                 failedSources.push(source)
+                if (error instanceof ChinaApiRateLimitError) backoffMultiplier *= 1.5
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'SEARCH-CHINA-TRENDS',
@@ -621,7 +654,9 @@ export class QueryCore {
                 'SEARCH-CHINA-TRENDS',
                 `首选源全部失败（${failedSources.join(', ')}），尝试备用源 ${fallback.join(', ')}`
             )
-            for (const source of fallback) {
+            for (let i = 0; i < fallback.length; i++) {
+                await maybeBackoff(backoffMultiplier)
+                const source = fallback[i]!
                 try {
                     const result = await this.fetchChinaHotWords(
                         this.buildChinaApiUrl(baseUrl, source, appkey),
@@ -637,6 +672,7 @@ export class QueryCore {
                         break // 拿到数据就停
                     }
                 } catch (error) {
+                    if (error instanceof ChinaApiRateLimitError) backoffMultiplier *= 1.5
                     this.bot.logger.warn(
                         this.bot.isMobile,
                         'SEARCH-CHINA-TRENDS',
@@ -674,7 +710,9 @@ export class QueryCore {
     /**
      * 请求单个中国热搜源并解析标题。
      * 走 bot.axios（统一代理、错误诊断、fingerprint headers），带 10s 超时。
-     * 对响应数据做结构校验，过滤掉无 title 或空 title 的项。
+     * 对响应数据做结构校验：优先识别 gmya.net 免费档的限流（403）响应，
+     * 抛出 ChinaApiRateLimitError 以便上层退避；其余非预期结构才报"格式异常"。
+     * 过滤掉无 title 或空 title 的项。
      */
     private async fetchChinaHotWords(url: string, source: string): Promise<string[]> {
         const request: AxiosRequestConfig = {
@@ -689,7 +727,17 @@ export class QueryCore {
         const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
         const data = response.data
 
-        // 数据结构校验：gmya.net 返回 { data: [{ title: string }, ...] }
+        // 免费档限流响应：{ code: "403", msg: "您请求过于频繁，未使用账号appkey请求将限制请求频率" }
+        // 没有 data 数组，需要和真正的格式异常区分开，否则会误导排查方向
+        const code = data?.code
+        const msg = typeof data?.msg === 'string' ? data.msg : ''
+        const isRateLimited =
+            code === '403' || msg.includes('请求过于频繁') || msg.includes('appkey')
+        if (isRateLimited) {
+            throw new ChinaApiRateLimitError(source, msg || `code=${code}`)
+        }
+
+        // 正常结构：{ data: [{ title: string }, ...] }
         if (!data || !Array.isArray(data.data)) {
             throw new Error(`${source} 响应格式异常：缺少 data 数组`)
         }
