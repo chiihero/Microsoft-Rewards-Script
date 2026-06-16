@@ -237,7 +237,7 @@ docker compose up -d
 5. 添加了日志本地保存功能-2025年7月26日
 6. 由于pnpm依赖导致无法编译问题，项目暂时改回使用npm管理-2025年11月11日
 7. 补充docker的运行方式-2025年11月11日
-8. **连击保护/领取积分迁移到新版 UI 的 Server Action**：抓包逆向新版 dashboard 的 Next.js Server Action 调用方式，修复旧版 REST API 在新版 UI 下 400 错误；带部署版本守卫，hash 失效自动降级跳过-2026年6月15日
+8. **连击保护/领取积分迁移到新版 UI 的 Server Action**：新版 dashboard 的 Next.js Server Action 调用方式，修复旧版 REST API 在新版 UI 下 400 错误；带部署版本守卫，hash 失效自动降级跳过-2026年6月15日
 9. **搜索查询日志聚合**：扩展循环从 100+ 条 DEBUG 降到 ~10 条采样汇总；新增"热搜词使用清单"（INFO 级别，分可扩展/未扩展/直通三类展示）-2026年6月15日
 10. **中国热搜源重构**：修复 fallback Bug（原 while 循环始终用同一个源）；fetch→axios 架构对齐（走代理配置）；新增 ZhiHuHot 源；改为**随机取 2 个源聚合**（避免每个账号都用同一个源）-2026年6月15日
 11. **连击保护独立文件**：从 BrowserFunc.ts 抽出 StreakProtection.ts，与 ClaimBonusPoints 结构对称-2026年6月15日
