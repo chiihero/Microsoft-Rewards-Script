@@ -98,6 +98,7 @@ docker compose up -d
 | `searchSettings.searchResultVisitTime` | 访问搜索结果页的停留时间 | `10sec` |
 | `searchSettings.searchDelay` | 搜索之间的延迟（最小/最大） | `30sec - 1min` |
 | `searchSettings.readDelay` | 阅读赚取活动的阅读间隔（最小/最大） | `30sec - 1min` |
+| `searchSettings.chinaApi.appkey` | gmya.net appkey（填入解除免费档限流，留空走免费档） | `''`（空） |
 
 > 注：示例配置 `config.example.json` 里 `searchDelay` 为 `6-12min`、`readDelay` 为 `6-11min`、`searchResultVisitTime` 为 `20sec`，比 Validator 默认值更保守，适合长时间挂机场景。
 
@@ -117,7 +118,8 @@ docker compose up -d
 #### 查询词来源（中国地区）
 当 `queryEngines` 包含 `china` 时，搜索词从中国热搜获取：
 - **数据源**：gmya.net 热门词 API（百度/头条/抖音/微博/知乎热搜榜）
-- **策略**：每次运行**随机选取 2 个源**聚合去重（避免每个账号都用同一个源），首选源全部失败时自动 fallback 到剩余源
+- **策略**：随机打乱 5 个源，取前 N 个聚合去重（避免每个账号都用同一个源）。N 由是否配置 `chinaApi.appkey` 决定：有 appkey 取 2 个；免费档取 1 个。首选源全部失败时自动 fallback 到剩余源
+- **限流处理**：免费档（无 appkey）对连续请求有频率限制，会触发 403。本脚本在源与源之间插入随机退避（1.2~2.5s），命中限流后指数退避 ×1.5，并将限流错误如实上报（不再误报为"格式异常"）。想彻底避免限流，在 `searchSettings.chinaApi.appkey` 填入 gmya.net appkey
 - **扩展**：对每个热搜词调用 Bing Suggestions/Related Terms 扩展查询多样性（命中率取决于词的特性 —— 短词高、长句低），扩展进度采样输出，结尾输出"热搜词使用清单"（INFO 级别）
 - **本地兜底**：`src/functions/search-queries.json` 提供 392 个标准查询词作为补充
 
@@ -210,7 +212,7 @@ docker compose up -d
 - ✅ 领取 dashboard 奖励积分（新版 UI 走 Server Action）
 
 **搜索词来源（中国地区）：**
-- ✅ 中国热搜（百度/头条/抖音/微博/知乎，随机取 2 源聚合）
+- ✅ 中国热搜（百度/头条/抖音/微博/知乎，多源聚合 + 限流退避）
 - ✅ Bing Suggestions / Related Terms 扩展（日志聚合输出）
 - ✅ 本地查询词兜底（`search-queries.json`，392 个标准词）
 
