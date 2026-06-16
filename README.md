@@ -169,8 +169,6 @@ docker compose up -d
 
 微软新版 dashboard（modern UI）改用 Next.js App Router，部分功能不再有对外 REST API，旧版 API（`togglestreakasync`、`claimallpointsasync`）在新版 UI 下因取不到 `requestToken` 会返回 `400 Bad Request`。
 
-本项目通过**抓包逆向**得到了新版 UI 的真实调用方式 —— Next.js Server Action：
-
 | 功能 | 调用方式 | 认证 |
 |---|---|---|
 | 连击保护 toggle | `POST /dashboard` + `next-action` hash + body `[true]` | Cookie |
