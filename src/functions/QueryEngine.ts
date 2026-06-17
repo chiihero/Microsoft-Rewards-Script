@@ -1,4 +1,4 @@
-import type { AxiosRequestConfig } from 'axios'
+import { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import * as fs from 'fs'
 import path from 'path'
 import type { GoogleSearch, GoogleTrendsResponse, RedditListing, WikipediaTopResponse } from '../interface/Search'
@@ -710,9 +710,11 @@ export class QueryCore {
     /**
      * 请求单个中国热搜源并解析标题。
      * 走 bot.axios（统一代理、错误诊断、fingerprint headers），带 10s 超时。
-     * 对响应数据做结构校验：优先识别 gmya.net 免费档的限流（403）响应，
-     * 抛出 ChinaApiRateLimitError 以便上层退避；其余非预期结构才报"格式异常"。
-     * 过滤掉无 title 或空 title 的项。
+     *
+     * 诊断策略：正常就 return；任何异常都把"原始返回值"打到日志里，让看日志的人直接判断
+     * 是限流、HTML 拦截页、维护 JSON 还是接口结构变更——比预先贴标签更有用。
+     * 唯一例外是限流：上层退避需要它做控制流，所以用 ChinaApiRateLimitError 单独标记，
+     * 但错误信息同样带上原始响应。
      */
     private async fetchChinaHotWords(url: string, source: string): Promise<string[]> {
         const request: AxiosRequestConfig = {
@@ -724,27 +726,90 @@ export class QueryCore {
             timeout: 10000
         }
 
-        const response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
+        // 请求失败（HTTP 非 2xx / 超时 / 网络错误）：直接吐原始返回，不再预先贴标签
+        let response: AxiosResponse
+        try {
+            response = await this.bot.axios.request(request, this.bot.config.proxy.queryEngine)
+        } catch (error) {
+            const { rateLimited, text } = this.describeAxiosError(error)
+            if (rateLimited) throw new ChinaApiRateLimitError(source, text)
+            throw new Error(`${source} 失败 | 原始响应=${text}`)
+        }
+
         const data = response.data
 
-        // 免费档限流响应：{ code: "403", msg: "您请求过于频繁，未使用账号appkey请求将限制请求频率" }
-        // 没有 data 数组，需要和真正的格式异常区分开，否则会误导排查方向
-        const code = data?.code
-        const msg = typeof data?.msg === 'string' ? data.msg : ''
-        const isRateLimited =
-            code === '403' || msg.includes('请求过于频繁') || msg.includes('appkey')
-        if (isRateLimited) {
-            throw new ChinaApiRateLimitError(source, msg || `code=${code}`)
+        // 限流：上层退避需要这个标记；信息里仍带原始响应
+        if (this.isChinaRateLimited(response)) {
+            throw new ChinaApiRateLimitError(source, `原始响应=${this.summarizeBody(data)}`)
         }
 
         // 正常结构：{ data: [{ title: string }, ...] }
-        if (!data || !Array.isArray(data.data)) {
-            throw new Error(`${source} 响应格式异常：缺少 data 数组`)
+        if (data && Array.isArray(data.data)) {
+            return data.data
+                .filter((item: { title?: unknown }) => item && typeof item.title === 'string')
+                .map((item: { title: string }) => item.title)
+                .filter((title: string) => title.trim().length > 0)
         }
 
-        return data.data
-            .filter((item: { title?: unknown }) => item && typeof item.title === 'string')
-            .map((item: { title: string }) => item.title)
-            .filter((title: string) => title.trim().length > 0)
+        // 结构非预期：直接吐原始返回，由人判断（HTML 拦截页 / 维护 JSON / 结构变更）
+        throw new Error(`${source} 失败 | 原始响应=${this.summarizeBody(data)}`)
+    }
+
+    /**
+     * 判断响应是否为 gmya.net 免费档限流。
+     * 免费档限流响应：{ code: "403", msg: "您请求过于频繁，未使用账号appkey请求将限制请求频率" }
+     * 没有 data 数组，需和真正的格式异常区分，否则会误导排查方向。
+     */
+    private isChinaRateLimited(response: AxiosResponse): boolean {
+        const status = response.status
+        const data = response.data
+        const code = data?.code
+        const msg = typeof data?.msg === 'string' ? data.msg : ''
+        return (
+            status === 403 ||
+            status === 429 ||
+            code === '403' ||
+            code === 403 ||
+            code === '429' ||
+            msg.includes('请求过于频繁') ||
+            msg.includes('appkey')
+        )
+    }
+
+    /**
+     * 把响应体序列化为可读字符串，诊断失败时用。
+     * - 对象走 JSON.stringify
+     * - 字符串原样返回（可能是 HTML 拦截/维护页）
+     * - undefined/空记为 <无响应体>
+     * 兜底截断到 1000 字符，防止上游误返回超大 HTML 污染日志。
+     */
+    private summarizeBody(body: unknown): string {
+        if (body === undefined || body === null || body === '') return '<无响应体>'
+        const text = typeof body === 'string' ? body : JSON.stringify(body)
+        return text.length > 1000 ? `${text.slice(0, 1000)}...(+${text.length - 1000}字符)` : text
+    }
+
+    /**
+     * 描述 axios 抛出的错误，返回可读文本 + 是否为限流。
+     * - 有 response：吐原始响应体（限流标记由 HTTP 状态码 403/429 判定）
+     * - 无 response（超时/断网/DNS）：吐 axios 错误码 + message
+     */
+    private describeAxiosError(error: unknown): { rateLimited: boolean; text: string } {
+        if (error instanceof AxiosError) {
+            if (error.response) {
+                return {
+                    rateLimited: error.response.status === 403 || error.response.status === 429,
+                    text: this.summarizeBody(error.response.data)
+                }
+            }
+            return {
+                rateLimited: false,
+                text: `<无响应体> | axiosCode=${error.code ?? '无'} | ${error.message}`
+            }
+        }
+        return {
+            rateLimited: false,
+            text: `<无响应体> | ${error instanceof Error ? error.message : String(error)}`
+        }
     }
 }
