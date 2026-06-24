@@ -31,23 +31,63 @@
 
 
 # Docker环境 #
-1. 下载或克隆源代码
-2. 确保`config.json`内的 `headless`设置为`true`
-3. 编辑`compose.yaml` 
-* 设置时区`TZ` 
-* 设置调度`CRON_SCHEDULE` （默认为每天7点执行一次）
-* 保持`RUN_ON_START=true`
-4. 启动容器
+Docker 下账号和行为配置都通过环境变量传入，容器启动时由 `entrypoint.sh` 自动生成 `accounts.json` 和 `config.json`，无需手动维护这两个文件。
+
+## 1. 准备账号文件（.env）
+从模板复制并填写：
 ~~~
-docker compose up -d 
+cp env.example .env
+~~~
+编辑 `.env`，至少填一个账号：
+~~~
+ACCOUNT_1_EMAIL=you@example.com
+ACCOUNT_1_PASSWORD=your_password
+# 国内账号推荐加：
+ACCOUNT_1_GEO_LOCALE=cn
+ACCOUNT_1_LANG_CODE=zh
+~~~
+> 多账号按 `ACCOUNT_2_*`、`ACCOUNT_3_*` 递增，编号必须连续。完整字段见 `env.example`。
+
+## 2. 编辑 compose.yaml（可选）
+默认配置开箱即用，如需调整取消对应行注释即可：
+- `TZ`：时区（默认 `Asia/Shanghai`）
+- `CRON_SCHEDULE`：调度（默认 `0 7 * * *`，每天 7 点）
+- `RUN_ON_START`：容器启动时是否立即跑一次（默认 `true`）
+- `CONFIG_QUERY_ENGINES`：查询源，国内推荐 `china,local`
+- `CONFIG_CHINA_API_APPKEY`：gmya.net appkey，配合 china 查询源解除免费档限流（留空走免费档）
+- `CONFIG_PUSHPLUS_*`：PushPlus 微信推送
+
+> 完整的 `CONFIG_*` 环境变量列表见 `scripts/docker/entrypoint.sh` 顶部注释。
+
+## 3. 关于 headless
+无需手动设置。Docker 环境下 `headless` 被容器入口强制设为 `true`（容器内无显示器，无法开窗口模式）。
+
+## 4. 构建并启动
+~~~
+docker compose up -d --build
+~~~
+> **重要**：改了代码或 Dockerfile 后，必须加 `--build` 参数重建镜像，否则跑的还是旧镜像。首次部署也建议带 `--build`。
+
+## 5. 数据持久化
+容器挂载了两个目录，重建容器不丢数据：
+- `./config/`：配置和账号文件
+- `./sessions/`：登录会话（首次登录后 cookie 存这里，后续自动复用）
+
+## 常用命令
+~~~
+docker compose up -d --build   # 构建+启动
+docker compose logs -f          # 查看日志
+docker compose down             # 停止并删除容器
+docker compose restart          # 重启（不重建）
 ~~~
 
 ## 注意事项 ##
 - 如果出现无法自动登录情况，请在代码执行登录过程中手动完成网页的登录，等待代码自动完成剩下流程。登录信息保存在sessions目录（需要多备份），后续运行根据该目录的会话文件来运行。
-- 复制或重命名 `src/accounts.example.json` 为 `src/accounts.json` 并添加您的凭据
-- 复制或重命名 `src/config.example.json` 为 `src/config.json` 并自定义您的偏好。
+- **Win 环境**：复制或重命名 `src/accounts.example.json` 为 `src/accounts.json` 并添加您的凭据
+- **Win 环境**：复制或重命名 `src/config.example.json` 为 `src/config.json` 并自定义您的偏好。
 - 不要跳过此步骤。之前的 accounts.json 和 config.json 版本与当前版本不兼容。
-- 您必须在对 accounts.json 和 config.json 进行任何更改后重新构建脚本。
+- **Win 环境**：修改 `accounts.json` 或 `config.json` 后，必须运行 `npm run build` 重新构建脚本。
+- **Docker 环境**：账号和行为配置通过 `.env` 和 `compose.yaml` 传入，不要手动改容器内的 config 文件（重启会被 entrypoint 覆盖）。改 compose.yaml 后用 `docker compose up -d --build` 生效。
 
 ## 配置参考
 

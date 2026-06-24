@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -e
 
 # Ensure Playwright uses preinstalled browsers
@@ -251,6 +251,22 @@ _cfg() {
   echo "[entrypoint]   $path = $val"
 }
 
+_cfg_array() {
+  # _cfg_array <value-or-unset-sentinel> <jq_path>
+  # Uses __UNSET__ sentinel to distinguish "var not set" from "var set to empty".
+  # An empty value writes [] to the config; an unset var is skipped entirely.
+  local val="$1" path="$2"
+  [ "$val" = "__UNSET__" ] && return 0
+  local json_array
+  if [ -z "$val" ]; then
+    json_array="[]"
+  else
+    json_array=$(echo "$val" | jq -Rc '[split(",") | .[] | ltrimstr(" ") | rtrimstr(" ")]')
+  fi
+  jq --argjson v "$json_array" "$path = \$v" "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+  echo "[entrypoint]   $path = [$val]"
+}
+
 # headless is always forced true — cannot run headed inside Docker
 _cfg 'true'                            '.headless'                                  bool
 
@@ -284,6 +300,12 @@ _cfg "${CONFIG_SEARCH_READ_DELAY_MAX:-}"   '.searchSettings.readDelay.max'      
 _cfg "${CONFIG_SEARCH_VISIT_TIME:-}"       '.searchSettings.searchResultVisitTime'  string
 _cfg "${CONFIG_SEARCH_ON_BING_LOCAL:-}"    '.searchOnBingLocalQueries'              bool
 
+# 查询源（国内核心特性）：queryEngines 决定热搜来源，chinaApi.appkey 解除 gmya.net 免费档限流。
+# 例：CONFIG_QUERY_ENGINES="china,local"（逗号分隔，按顺序尝试；可选 china/google/wikipedia/reddit/local）
+#     CONFIG_CHINA_API_APPKEY="你的gmya.net appkey"（留空走免费档，有频率限制）
+_cfg_array "${CONFIG_QUERY_ENGINES-__UNSET__}"  '.searchSettings.queryEngines'
+_cfg "${CONFIG_CHINA_API_APPKEY:-}"             '.searchSettings.chinaApi.appkey'  string
+
 # Proxy
 _cfg "${CONFIG_PROXY_QUERY_ENGINE:-}"  '.proxy.queryEngine'  bool
 
@@ -291,21 +313,6 @@ _cfg "${CONFIG_PROXY_QUERY_ENGINE:-}"  '.proxy.queryEngine'  bool
 # Levels and keywords accept comma-separated values e.g. "error,warn"
 _cfg "${CONFIG_LOG_FILTER_ENABLED:-}"   '.consoleLogFilter.enabled'  bool
 _cfg "${CONFIG_LOG_FILTER_MODE:-}"      '.consoleLogFilter.mode'     string
-_cfg_array() {
-  # _cfg_array <value-or-unset-sentinel> <jq_path>
-  # Uses __UNSET__ sentinel to distinguish "var not set" from "var set to empty".
-  # An empty value writes [] to the config; an unset var is skipped entirely.
-  local val="$1" path="$2"
-  [ "$val" = "__UNSET__" ] && return 0
-  local json_array
-  if [ -z "$val" ]; then
-    json_array="[]"
-  else
-    json_array=$(echo "$val" | jq -Rc '[split(",") | .[] | ltrimstr(" ") | rtrimstr(" ")]')
-  fi
-  jq --argjson v "$json_array" "$path = \$v" "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
-  echo "[entrypoint]   $path = [$val]"
-}
 _cfg_array "${CONFIG_LOG_FILTER_LEVELS-__UNSET__}"    '.consoleLogFilter.levels'
 _cfg_array "${CONFIG_LOG_FILTER_KEYWORDS-__UNSET__}"  '.consoleLogFilter.keywords'
 
@@ -356,35 +363,24 @@ fi
 
 # 设置 cron 任务
 if [ -f "/etc/cron.d/microsoft-rewards-cron.template" ]; then
-    # 替换模板中的占位符
-    CRON_SCHEDULE_ESCAPED=$(echo "$CRON_SCHEDULE" | sed 's/\*/\\*/g')
-    echo "DEBUG: CRON_SCHEDULE_ESCAPED=$CRON_SCHEDULE_ESCAPED"
-    echo "DEBUG: TZ=$TZ"
-    echo "DEBUG: Before sed - template content:"
-    cat /etc/cron.d/microsoft-rewards-cron.template
-    sed -i "s|\${CRON_SCHEDULE}|$CRON_SCHEDULE_ESCAPED|g" /etc/cron.d/microsoft-rewards-cron.template || true
+    # 替换模板中的占位符。
+    # 注意：不要转义 CRON_SCHEDULE 里的 * —— crontab 字段里 * 是合法的通配符，
+    # 转义成 \* 会让 cron 当成字面星号、匹配失败。sed 用 | 作分隔符，
+    # 标准 cron 表达式（如 0 7 * * *）不含 |，直接替换即可。
+    echo "[entrypoint] CRON_SCHEDULE=$CRON_SCHEDULE | TZ=$TZ"
+    sed -i "s|\${CRON_SCHEDULE}|$CRON_SCHEDULE|g" /etc/cron.d/microsoft-rewards-cron.template || true
     sed -i "s|\${TZ}|$TZ|g" /etc/cron.d/microsoft-rewards-cron.template || true
-    echo "DEBUG: After sed - template content:"
-    cat /etc/cron.d/microsoft-rewards-cron.template
 
     # 启用 cron 任务
     cp /etc/cron.d/microsoft-rewards-cron.template /etc/cron.d/microsoft-rewards-cron
     chmod 0644 /etc/cron.d/microsoft-rewards-cron
-
-    # 启动 cron 服务
-    echo "正在启动 cron 服务..."
-    service cron start
-
-    # 检查 cron 服务状态
-    if service cron status; then
-        echo "Cron 服务启动成功"
-    else
-        echo "警告: Cron 服务启动失败"
-    fi
+    echo "[entrypoint] cron 配置已写入 /etc/cron.d/microsoft-rewards-cron"
 else
     echo "警告: 在 /etc/cron.d/microsoft-rewards-cron.template 找不到 Cron 模板"
 fi
 
-# 启动应用
-echo "正在启动 Microsoft Rewards 脚本..."
+# 启动 cron（前台，作为 PID 1）。CMD 默认是 "cron -f -l 2"。
+# 不用 `service cron start`，避免后台 cron 与前台 cron -f 形成双实例冲突；
+# 前台 cron 作为 PID 1 还能正确接收容器 SIGTERM 信号。
+echo "[entrypoint] 启动 cron（前台，PID 1）..."
 exec "$@"

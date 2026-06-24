@@ -93,9 +93,11 @@ RUN mkdir -p ./dist/config \
 
 # Copy runtime scripts with proper permissions from the start
 COPY --chmod=755 scripts/docker/run_daily.sh ./scripts/docker/run_daily.sh
-COPY --chmod=755 scripts/docker/log-forwarder.sh ./scripts/docker/log-forwarder.sh
 COPY --chmod=644 src/crontab.template /etc/cron.d/microsoft-rewards-cron.template
-COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+# 使用 scripts/docker/entrypoint.sh（完整国内适配版：ACCOUNT_* 生成账号、
+# CONFIG_* 覆盖配置、PushPlus、queryEngines/chinaApi 支持）。
+# 根目录的 entrypoint.sh 是简陋旧版，已删除，避免误用。
+COPY --chmod=755 scripts/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Entrypoint handles TZ, accounts/config generation, initial run toggle,
 # cron templating & launch

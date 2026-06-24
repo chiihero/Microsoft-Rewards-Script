@@ -11,3 +11,10 @@ note
 accounts.dev.json
 accounts.main.json
 .playwright-chromium-installed
+
+# 运行时配置文件（含真实账号/密码）：严禁进入镜像。
+# - 防止敏感信息泄露到 build context / builder layer / runtime image
+# - tsc 对 include 中缺失的文件会静默跳过（已验证），dist/ 不产生这两个文件，
+#   Dockerfile 的 ln -symlink 才能正常创建，由 entrypoint.sh 运行时生成
+src/config.json
+src/accounts.json

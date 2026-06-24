@@ -781,11 +781,22 @@ export class QueryCore {
      * - 对象走 JSON.stringify
      * - 字符串原样返回（可能是 HTML 拦截/维护页）
      * - undefined/空记为 <无响应体>
+     * - 非 UTF-8 响应体（gzip 压缩流 / GBK HTML 错误页 / CDN 二进制拦截页）：
+     *   axios 默认按 UTF-8 解码，非法字节被替换成 U+FFFD(�)，原始字节已丢失。
+     *   原样写日志会产生乱码，且二进制流里的 0x0A(换行字节) 会把一条日志拆成
+     *   多行、污染日志结构。这里检测到高密度替换符时改写为可读的诊断摘要。
      * 兜底截断到 1000 字符，防止上游误返回超大 HTML 污染日志。
      */
     private summarizeBody(body: unknown): string {
         if (body === undefined || body === null || body === '') return '<无响应体>'
         const text = typeof body === 'string' ? body : JSON.stringify(body)
+        // 检测损坏的非 UTF-8 内容：替换符 U+FFFD 占比 >= 5% 即判定为二进制/非文本响应体
+        const replacementCount = (text.match(/\uFFFD/g) ?? []).length
+        if (replacementCount > 0 && replacementCount / Math.max(text.length, 1) >= 0.05) {
+            // hex 指纹便于人工判断内容类型（gzip=1F8B、HTML=3C68746D6C、GBK错误页 等）
+            const hex = Buffer.from(text, 'utf8').subarray(0, 32).toString('hex')
+            return `<非UTF-8响应体 | 长度=${text.length} | 替换符=${replacementCount} | 疑似gzip/二进制/GBK错误页 | hex前32=${hex}>`
+        }
         return text.length > 1000 ? `${text.slice(0, 1000)}...(+${text.length - 1000}字符)` : text
     }
 
