@@ -721,7 +721,12 @@ export class QueryCore {
             url,
             method: 'GET',
             headers: {
-                ...(this.bot.fingerprint?.headers ?? {})
+                ...(this.bot.fingerprint?.headers ?? {}),
+                // axios 不支持 zstd/br 解压，而 fingerprint 注入了
+                // "accept-encoding: gzip, deflate, br, zstd"，gmya.net 据此返回 zstd 压缩流，
+                // axios 无法解码导致响应体全是乱码(U+FFFD)、被当成非法结构丢弃。
+                // 覆盖为 axios 能解的编码，只影响中国热搜源。
+                'accept-encoding': 'gzip, deflate'
             },
             timeout: 10000
         }

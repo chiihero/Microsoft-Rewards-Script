@@ -481,14 +481,14 @@ export class MicrosoftRewardsBot {
                 const appData: AppDashboardData = await this.browser.func.getAppDashboardData()
                 this.panelData = await this.browser.func.getPanelFlyoutData()
 
-                // 新版 UI 用 Next.js Server Actions，需要从 dashboard 页面提取部署 ID
-                // 作为版本守卫（hash 跟部署版本绑定，不一致就降级跳过，避免 400）
+                // 新版 UI 用 Next.js Server Actions，提取部署 ID 用于请求头和日志对照。
+                // 版本号本身不再拦截调用（hash 通常不随部署变更）；仅提取不到 ID 时才跳过。
                 this.serverActions.deploymentId = await this.browser.func.extractDeploymentId(this.mainMobilePage)
                 if (this.serverActions.deploymentId) {
                     this.logger.info(
                         'main',
                         'SERVER-ACTION',
-                        `新版仪表板部署 ID: ${this.serverActions.deploymentId} | Server Action 支持版本: ${BrowserFunc.SUPPORTED_DEPLOYMENT_ID}`
+                        `新版仪表板部署 ID: ${this.serverActions.deploymentId} | hash 抓录版本(参考): ${BrowserFunc.SUPPORTED_DEPLOYMENT_ID}`
                     )
                 }
                 // 设置地理位置

@@ -19,8 +19,8 @@ export default class BrowserFunc {
      * next-action hash 在编译时生成，绑定到具体部署版本（dpl）。
      * 下面是通过网络请求记录得到的当前部署版本的 hash 表；部署更新后 hash 会失效，由调用方做版本守卫。
      */
-    // 记录时的部署版本 ID（用于和当前页面的 dpl 比对，不一致则降级跳过）
-    public static readonly SUPPORTED_DEPLOYMENT_ID = '20260612-3'
+    // hash 抓录时的部署版本 ID（仅作日志对照参考；版本不匹配不再拦截调用，见 callServerAction）
+    public static readonly SUPPORTED_DEPLOYMENT_ID = '20260624-3'
 
     // Server Action hash 表（在 SUPPORTED_DEPLOYMENT_ID 下记录得到）
     public static readonly SERVER_ACTION_HASHES = {
@@ -343,8 +343,10 @@ export default class BrowserFunc {
 
     /**
      * 从 dashboard 页面提取 Next.js 部署版本 ID（dpl）。
-     * 新版 UI 的 Server Action hash 跟 dpl 绑定，这里做版本守卫：
-     * 与 SUPPORTED_DEPLOYMENT_ID 一致时返回该 ID；否则返回 null 表示脚本内置 hash 可能失效。
+     * 仅用于日志对照：SUPPORTED_DEPLOYMENT_ID 是抓录时的版本，部署更新后 dpl 会变，
+     * 但 Server Action hash 通常不变（微软重新部署≠改了函数）。因此不匹配时不拦截，
+     * 只打 warning 提示 hash 可能失效；真正能否调用由 callServerAction 用 HTTP 状态码判定。
+     * 仅在提取不到任何 dpl 时返回 null。
      */
     async extractDeploymentId(page: Page): Promise<string | null> {
         try {
@@ -393,9 +395,8 @@ export default class BrowserFunc {
                     this.bot.isMobile,
                     'SERVER-ACTION',
                     `部署版本不匹配 | 当前=${deploymentId} | 支持=${BrowserFunc.SUPPORTED_DEPLOYMENT_ID} | ` +
-                        '微软可能更新了 dashboard，内置的 Server Action hash 可能已失效，相关功能将降级跳过'
+                        '微软可能更新了 dashboard，内置的 Server Action hash 可能已失效；将照常尝试，若返回非 2xx 则自动降级'
                 )
-                return null
             }
 
             return deploymentId
@@ -423,13 +424,13 @@ export default class BrowserFunc {
         args: unknown[],
         tag: string
     ): Promise<boolean> {
-        // 版本守卫：部署 ID 不匹配或未提取时，降级跳过（避免带失效 hash 请求导致 400/500）
-        if (this.bot.serverActions.deploymentId !== BrowserFunc.SUPPORTED_DEPLOYMENT_ID) {
+        // 版本守卫：仅当完全没提取到部署 ID（dashboard 没加载/解析失败）时跳过；
+        // 版本号不匹配时不再拦截——hash 通常不随部署变更，照常发请求，靠响应码判定成败。
+        if (!this.bot.serverActions.deploymentId) {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 tag,
-                `跳过：Server Action 部署版本不匹配（当前=${this.bot.serverActions.deploymentId ?? 'null'}, ` +
-                    `支持=${BrowserFunc.SUPPORTED_DEPLOYMENT_ID}），可能是新版 UI 更新或未提取到部署 ID`
+                '跳过：未提取到部署 ID（dashboard 未加载或解析失败），Server Action 无法调用'
             )
             return false
         }
@@ -448,7 +449,7 @@ export default class BrowserFunc {
                     // 这里传一个最小化的 dashboard 路由树（通过请求分析得到的结构）
                     'next-router-state-tree':
                         '%5B%22%22%2C%7B%22children%22%3A%5B%22(nav)%22%2C%7B%22children%22%3A%5B%22dashboard%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C16%5D',
-                    'x-deployment-id': BrowserFunc.SUPPORTED_DEPLOYMENT_ID,
+                    'x-deployment-id': this.bot.serverActions.deploymentId,
                     Referer: 'https://rewards.bing.com/dashboard',
                     Cookie: this.buildCookieHeader(this.bot.cookies.mobile, [
                         'bing.com',
