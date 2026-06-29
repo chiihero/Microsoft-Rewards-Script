@@ -20,6 +20,11 @@ class ChinaApiRateLimitError extends Error {
 export class QueryCore {
     constructor(private bot: MicrosoftRewardsBot) {}
 
+    // 兜底模式：主源（sourceOrder[0]）原始词累计达 FALLBACK_THRESHOLD 即停，
+    // 不再请求后续源；不足则向后逐源补充，兜底源只取 FALLBACK_LOCAL_SAMPLE 个（随机抽样）。
+    private static readonly FALLBACK_THRESHOLD = 20
+    private static readonly FALLBACK_LOCAL_SAMPLE = 50
+
     async queryManager(
         options: {
             shuffle?: boolean
@@ -77,12 +82,39 @@ export class QueryCore {
                 }
             }
 
+            const primarySource = sourceOrder[0]
+            const threshold = QueryCore.FALLBACK_THRESHOLD
+            const collectedCount = () => topicLists.flat().length
+
             for (const source of sourceOrder) {
+                // 已累计达标就停，不再请求后续源（主源或前序兜底源已够用）
+                if (collectedCount() >= threshold) {
+                    this.bot.logger.debug(
+                        this.bot.isMobile,
+                        'QUERY-MANAGER',
+                        `兜底命中阈值，停止取后续源 | 已累计=${collectedCount()} | 阈值=${threshold} | 停在源=${source}`
+                    )
+                    break
+                }
+
                 const handler = sourceHandlers[source]
                 if (!handler) continue
 
                 const topics = await Promise.resolve(handler())
-                if (topics.length) topicLists.push(topics)
+                if (!topics.length) continue
+
+                // 主源全量纳入；后续源只随机抽样 FALLBACK_LOCAL_SAMPLE 个补充
+                if (source !== primarySource) {
+                    const sampled = this.bot.utils.shuffleArray([...topics]).slice(0, QueryCore.FALLBACK_LOCAL_SAMPLE)
+                    topicLists.push(sampled)
+                    this.bot.logger.debug(
+                        this.bot.isMobile,
+                        'QUERY-MANAGER',
+                        `兜底补充 | 源=${source} | 原始=${topics.length} | 抽样=${sampled.length} | 累计=${collectedCount()}`
+                    )
+                } else {
+                    topicLists.push(topics)
+                }
             }
 
             this.bot.logger.debug(
