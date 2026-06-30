@@ -148,7 +148,7 @@ export class UserAgentManager {
             this.bot.logger.error(
                 isMobile,
                 'USERAGENT-CHROME-VERSION',
-                `An error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误：${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }
@@ -175,7 +175,7 @@ export class UserAgentManager {
             this.bot.logger.error(
                 isMobile,
                 'USERAGENT-EDGE-VERSION',
-                `An error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误：${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }
@@ -259,7 +259,7 @@ export class UserAgentManager {
             this.bot.logger.error(
                 isMobile,
                 'USER-AGENT-UPDATE',
-                `An error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误：${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }

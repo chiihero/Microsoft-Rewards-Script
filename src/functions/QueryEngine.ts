@@ -1,4 +1,4 @@
-import type { HttpRequestConfig } from '../util/Http'
+import type { HttpRequestConfig, HttpResponse } from '../util/Http'
 import * as fs from 'fs'
 import path from 'path'
 import { XMLParser } from 'fast-xml-parser'
@@ -19,6 +19,18 @@ import type { MicrosoftRewardsBot } from '../index'
 const GOOGLE_TRENDS_RPC_ID = 'i0OFE'
 
 const RELATED_EXPANSION_LIMIT = 50
+
+/**
+ * 中国热搜源触发了 gmya.net 免费档的频率限制。
+ * 携带 rateLimited 标记，供 getChinaTrends 做退避决策。
+ */
+class ChinaApiRateLimitError extends Error {
+    rateLimited = true
+    constructor(source: string, detail: string) {
+        super(`${source} 触发限流：${detail}（建议配置 searchSettings.chinaApi.appkey）`)
+        this.name = 'ChinaApiRateLimitError'
+    }
+}
 
 interface QueryManagerOptions {
     shuffle?: boolean
@@ -62,7 +74,7 @@ export class QueryCore {
     async queryManager(options: QueryManagerOptions = {}): Promise<string[]> {
         const {
             shuffle = false,
-            sourceOrder = ['google', 'wikipedia', 'wikirandom', 'hackernews', 'reddit', 'local'],
+            sourceOrder = ['google', 'wikipedia', 'wikirandom', 'hackernews', 'reddit', 'china', 'local'],
             related = true,
             langCode = 'en',
             geoLocale = 'US'
@@ -75,6 +87,7 @@ export class QueryCore {
                 wikirandom: () => this.getWikipediaRandom(langCode).catch(() => []),
                 hackernews: () => this.getHackerNewsTopics().catch(() => []),
                 reddit: () => this.getRedditTopics().catch(() => []),
+                china: () => this.getChinaTrends(geoLocale.toUpperCase()).catch(() => []),
                 local: () => this.getLocalQueryList()
             }
 
@@ -91,7 +104,7 @@ export class QueryCore {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'QUERY-MANAGER',
-                    `Source "${source}" returned ${topics.length}`
+                    `源 "${source}" 返回 ${topics.length} 个主题`
                 )
                 if (topics.length) topicLists.push(topics)
             }
@@ -101,14 +114,14 @@ export class QueryCore {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'QUERY-MANAGER',
-                    `Source "rss" returned ${rssTopics.length} (${rssSelectors.length} selector(s))`
+                    `源 "rss" 返回 ${rssTopics.length} 个主题（${rssSelectors.length} 个选择器）`
                 )
                 if (rssTopics.length) topicLists.push(rssTopics)
             }
 
             const baseTopics = this.normalizeAndDedupe(topicLists.flat())
             if (!baseTopics.length) {
-                this.bot.logger.warn(this.bot.isMobile, 'QUERY-MANAGER', 'No topics returned by any source')
+                this.bot.logger.warn(this.bot.isMobile, 'QUERY-MANAGER', '所有查询源均未返回任何主题')
                 return []
             }
 
@@ -122,7 +135,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'QUERY-MANAGER',
-                `Built query pool | base=${baseTopics.length} | final=${finalQueries.length} | related=${related}`
+                `已构建查询词池 | 基础=${baseTopics.length} | 最终=${finalQueries.length} | 相关扩展=${related}`
             )
 
             return finalQueries
@@ -130,7 +143,7 @@ export class QueryCore {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'QUERY-MANAGER',
-                `Failed building query pool | ${error instanceof Error ? error.message : String(error)}`
+                `构建查询词池失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -189,7 +202,7 @@ export class QueryCore {
             const response = await this.bot.http.request<string>(request, this.bot.config.proxy.queryEngine)
             const trendsData = this.extractJsonFromResponse(response.data)
             if (!trendsData) {
-                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-GOOGLE-TRENDS', 'No trends data parsed from response')
+                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-GOOGLE-TRENDS', '未能从响应中解析到任何趋势数据')
                 return []
             }
 
@@ -206,7 +219,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-GOOGLE-TRENDS',
-                `Request failed | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -241,7 +254,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-BING-SUGGESTIONS',
-                `Request failed | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -262,7 +275,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-BING-RELATED',
-                `Request failed | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -289,7 +302,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-WIKIPEDIA-TRENDING',
-                `Request failed | lang=${langCode} | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | lang=${langCode} | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -312,7 +325,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-REDDIT',
-                `Request failed | subreddit=${safe} | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | subreddit=${safe} | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -334,7 +347,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-HACKERNEWS',
-                `Request failed | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -360,7 +373,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-WIKIPEDIA-RANDOM',
-                `Request failed | lang=${lang} | ${error instanceof Error ? error.message : String(error)}`
+                `请求失败 | lang=${lang} | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -389,7 +402,7 @@ export class QueryCore {
 
             const feeds = RSS_FEEDS[site]
             if (!feeds) {
-                this.bot.logger.warn(this.bot.isMobile, 'SEARCH-RSS', `Unknown RSS site "${site}" in "${selector}"`)
+                this.bot.logger.warn(this.bot.isMobile, 'SEARCH-RSS', `未知的 RSS 站点 "${site}"（在选择器 "${selector}" 中）`)
                 continue
             }
 
@@ -400,7 +413,7 @@ export class QueryCore {
 
             const url = feeds[endpoint]
             if (url) urls.add(url)
-            else this.bot.logger.warn(this.bot.isMobile, 'SEARCH-RSS', `Unknown RSS feed "${site}.${endpoint}"`)
+            else this.bot.logger.warn(this.bot.isMobile, 'SEARCH-RSS', `未知的 RSS 源 "${site}.${endpoint}"`)
         }
 
         return [...urls]
@@ -421,7 +434,7 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-RSS',
-                `Feed failed | ${url} | ${error instanceof Error ? error.message : String(error)}`
+                `RSS 源失败 | ${url} | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -455,9 +468,260 @@ export class QueryCore {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'SEARCH-LOCAL-QUERY-LIST',
-                `Failed reading search-queries.json | ${error instanceof Error ? error.message : String(error)}`
+                `读取 search-queries.json 失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return []
+        }
+    }
+
+    /**
+     * 获取中国地区的热门搜索词（百度、抖音、微博、头条、知乎等）。
+     * 数据源：gmya.net 聚合 API。
+     *   - 随机打乱源顺序，取前 N 个作为首选，其余作为 fallback；
+     *   - 首选源全部失败时逐个 fallback，直到拿到数据；
+     *   - 免费档易限流：源间随机退避，命中限流后指数退避。
+     *   - appkey 配置在 searchSettings.chinaApi.appkey；留空走免费档。
+     * @param geoLocale 地区代码（默认 CN）
+     * @returns 热搜标题字符串数组
+     */
+    async getChinaTrends(geoLocale: string = 'CN'): Promise<string[]> {
+        const allSources = ['BaiduHot', 'TouTiaoHot', 'DouYinHot', 'WeiBoHot', 'ZhiHuHot']
+        const baseUrl = 'https://api.gmya.net/Api/'
+        // appkey 来自配置；留空走免费档（有频率限制），填入则解除限流
+        const appkey = this.bot.config.searchSettings.chinaApi?.appkey?.trim() ?? ''
+        const hasAppkey = appkey.length > 0
+        // 免费档容易被限流：减少首选源数量以降低触发面；有 appkey 则保持 2 个兼顾多样性
+        const pickedCount = hasAppkey ? 2 : 1
+        // 免费档源间退避参数（毫秒）；有 appkey 不需要退避
+        const backoffMin = 1200
+        const backoffMax = 2500
+
+        // 随机打乱源顺序，取前 pickedCount 个作为首选；其余作为 fallback 备用
+        const shuffled = this.bot.utils.shuffleArray([...allSources])
+        const picked = shuffled.slice(0, pickedCount)
+        const fallback = shuffled.slice(pickedCount)
+
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'SEARCH-CHINA-TRENDS',
+            `正在获取中国热搜 | 地区=${geoLocale} | appkey=${hasAppkey ? '已配置' : '免费档'} | 首选源=${picked.join(', ')} | 备用源=${fallback.length}个`
+        )
+
+        /**
+         * 免费档在源与源之间插入随机退避，降低连续请求触发 403 限流的概率。
+         * 命中限流后对后续源做指数退避（multiplier 递增）。
+         */
+        const maybeBackoff = async (multiplier: number): Promise<void> => {
+            if (hasAppkey) return
+            await this.bot.utils.wait(this.bot.utils.randomDelay(backoffMin * multiplier, backoffMax * multiplier))
+        }
+
+        const titles = new Set<string>()
+        const failedSources: string[] = []
+        let backoffMultiplier = 1 // 限流命中后递增
+
+        // 先依次尝试首选源
+        for (let i = 0; i < picked.length; i++) {
+            if (i > 0) await maybeBackoff(backoffMultiplier)
+            const source = picked[i]!
+            try {
+                const result = await this.fetchChinaHotWords(this.buildChinaApiUrl(baseUrl, source, appkey), source)
+                if (result.length) {
+                    result.forEach(t => titles.add(t))
+                    this.bot.logger.info(
+                        this.bot.isMobile,
+                        'SEARCH-CHINA-TRENDS',
+                        `获取 ${source} 成功 | 数量=${result.length} | 累计=${titles.size}`
+                    )
+                } else {
+                    this.bot.logger.warn(this.bot.isMobile, 'SEARCH-CHINA-TRENDS', `${source} 返回空列表`)
+                    failedSources.push(source)
+                }
+            } catch (error) {
+                failedSources.push(source)
+                if (error instanceof ChinaApiRateLimitError) backoffMultiplier *= 1.5
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'SEARCH-CHINA-TRENDS',
+                    `${source} 请求失败 | 错误=${error instanceof Error ? error.message : String(error)}`
+                )
+            }
+        }
+
+        // 如果首选源全部失败，逐个 fallback 直到拿到数据
+        if (titles.size === 0 && fallback.length) {
+            this.bot.logger.warn(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `首选源全部失败（${failedSources.join(', ')}），尝试备用源 ${fallback.join(', ')}`
+            )
+            for (let i = 0; i < fallback.length; i++) {
+                await maybeBackoff(backoffMultiplier)
+                const source = fallback[i]!
+                try {
+                    const result = await this.fetchChinaHotWords(
+                        this.buildChinaApiUrl(baseUrl, source, appkey),
+                        source
+                    )
+                    if (result.length) {
+                        result.forEach(t => titles.add(t))
+                        this.bot.logger.info(
+                            this.bot.isMobile,
+                            'SEARCH-CHINA-TRENDS',
+                            `备用源 ${source} 成功 | 数量=${result.length} | 累计=${titles.size}`
+                        )
+                        break // 拿到数据就停
+                    }
+                } catch (error) {
+                    if (error instanceof ChinaApiRateLimitError) backoffMultiplier *= 1.5
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'SEARCH-CHINA-TRENDS',
+                        `备用源 ${source} 也失败 | 错误=${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
+            }
+        }
+
+        if (titles.size === 0) {
+            this.bot.logger.warn(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `所有 ${allSources.length} 个热搜源均失败，将仅依赖其他查询源`
+            )
+        } else {
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'SEARCH-CHINA-TRENDS',
+                `中国热搜获取完成 | 最终词数=${titles.size} | 成功源=${picked.filter(s => !failedSources.includes(s)).join(',') || fallback.filter(s => titles.size > 0).join(',')}`,
+                'green'
+            )
+        }
+
+        return Array.from(titles)
+    }
+
+    /**
+     * 构造 gmya.net 热搜 API 的请求 URL。
+     */
+    private buildChinaApiUrl(baseUrl: string, source: string, appkey: string): string {
+        return appkey ? `${baseUrl}${source}?format=json&appkey=${appkey}` : `${baseUrl}${source}`
+    }
+
+    /**
+     * 请求单个中国热搜源并解析标题。
+     * 走 bot.http（统一代理、错误诊断、fingerprint headers），带 10s 超时。
+     *
+     * 诊断策略：正常就 return；任何异常都把"原始返回值"打到日志里，让看日志的人直接判断
+     * 是限流、HTML 拦截页、维护 JSON 还是接口结构变更——比预先贴标签更有用。
+     * 唯一例外是限流：上层退避需要它做控制流，所以用 ChinaApiRateLimitError 单独标记，
+     * 但错误信息同样带上原始响应。
+     */
+    private async fetchChinaHotWords(url: string, source: string): Promise<string[]> {
+        const request: HttpRequestConfig = {
+            url,
+            method: 'GET',
+            headers: {
+                ...(this.bot.fingerprint?.headers ?? {}),
+                // impit 不支持 zstd/br 解压，而 fingerprint 注入了
+                // "accept-encoding: gzip, deflate, br, zstd"，gmya.net 据此返回 zstd 压缩流，
+                // 客户端无法解码导致响应体全是乱码(U+FFFD)、被当成非法结构丢弃。
+                // 覆盖为客户端能解的编码，只影响中国热搜源。
+                'accept-encoding': 'gzip, deflate'
+            },
+            timeout: 10000
+        }
+
+        // 请求失败（HTTP 非 2xx / 超时 / 网络错误）：直接吐原始返回，不再预先贴标签
+        let response: HttpResponse
+        try {
+            response = await this.bot.http.request(request, this.bot.config.proxy.queryEngine)
+        } catch (error) {
+            const { rateLimited, text } = this.describeHttpError(error)
+            if (rateLimited) throw new ChinaApiRateLimitError(source, text)
+            throw new Error(`${source} 失败 | 原始响应=${text}`)
+        }
+
+        const data = response.data as { data?: { title?: unknown }[] } | undefined
+
+        // 限流：上层退避需要这个标记；信息里仍带原始响应
+        if (this.isChinaRateLimited(response)) {
+            throw new ChinaApiRateLimitError(source, `原始响应=${this.summarizeBody(data)}`)
+        }
+
+        // 正常结构：{ data: [{ title: string }, ...] }
+        if (data && Array.isArray(data.data)) {
+            return data.data
+                .filter((item: { title?: unknown }) => item && typeof item.title === 'string')
+                .map((item: { title?: unknown }) => item.title as string)
+                .filter((title: string) => title.trim().length > 0)
+        }
+
+        // 结构非预期：直接吐原始返回，由人判断（HTML 拦截页 / 维护 JSON / 结构变更）
+        throw new Error(`${source} 失败 | 原始响应=${this.summarizeBody(data)}`)
+    }
+
+    /**
+     * 判断响应是否为 gmya.net 免费档限流。
+     * 免费档限流响应：{ code: "403", msg: "您请求过于频繁，未使用账号appkey请求将限制请求频率" }
+     * 没有 data 数组，需和真正的格式异常区分，否则会误导排查方向。
+     */
+    private isChinaRateLimited(response: HttpResponse): boolean {
+        const status = response.status
+        const data = response.data as { code?: unknown; msg?: unknown } | undefined
+        const code = data?.code
+        const msg = typeof data?.msg === 'string' ? data.msg : ''
+        return (
+            status === 403 ||
+            status === 429 ||
+            code === '403' ||
+            code === 403 ||
+            code === '429' ||
+            msg.includes('请求过于频繁') ||
+            msg.includes('appkey')
+        )
+    }
+
+    /**
+     * 把响应体序列化为可读字符串，诊断失败时用。
+     * - 对象走 JSON.stringify
+     * - 字符串原样返回（可能是 HTML 拦截/维护页）
+     * - undefined/空记为 <无响应体>
+     * - 非 UTF-8 响应体（gzip 压缩流 / GBK HTML 错误页 / CDN 二进制拦截页）：
+     *   客户端默认按 UTF-8 解码，非法字节被替换成 U+FFFD(�)，原始字节已丢失。
+     *   原样写日志会产生乱码，且二进制流里的 0x0A(换行字节) 会把一条日志拆成
+     *   多行、污染日志结构。这里检测到高密度替换符时改写为可读的诊断摘要。
+     * 兜底截断到 1000 字符，防止上游误返回超大 HTML 污染日志。
+     */
+    private summarizeBody(body: unknown): string {
+        if (body === undefined || body === null || body === '') return '<无响应体>'
+        const text = typeof body === 'string' ? body : JSON.stringify(body)
+        // 检测损坏的非 UTF-8 内容：替换符 U+FFFD 占比 >= 5% 即判定为二进制/非文本响应体
+        const replacementCount = (text.match(/\uFFFD/g) ?? []).length
+        if (replacementCount > 0 && replacementCount / Math.max(text.length, 1) >= 0.05) {
+            // hex 指纹便于人工判断内容类型（gzip=1F8B、HTML=3C68746D6C、GBK错误页 等）
+            const hex = Buffer.from(text, 'utf8').subarray(0, 32).toString('hex')
+            return `<非UTF-8响应体 | 长度=${text.length} | 替换符=${replacementCount} | 疑似gzip/二进制/GBK错误页 | hex前32=${hex}>`
+        }
+        return text.length > 1000 ? `${text.slice(0, 1000)}...(+${text.length - 1000}字符)` : text
+    }
+
+    /**
+     * 描述 HttpClient 抛出的错误，返回可读文本 + 是否为限流。
+     * - 有 response：吐原始响应体（限流标记由 HTTP 状态码 403/429 判定）
+     * - 无 response（超时/断网/DNS）：吐错误状态/码 + message
+     */
+    private describeHttpError(error: unknown): { rateLimited: boolean; text: string } {
+        const err = error as { response?: HttpResponse; status?: number; code?: string; message?: string }
+        if (err?.response) {
+            return {
+                rateLimited: err.response.status === 403 || err.response.status === 429,
+                text: this.summarizeBody(err.response.data)
+            }
+        }
+        return {
+            rateLimited: false,
+            text: `<无响应体> | status=${err?.status ?? '无'} | code=${err?.code ?? '无'} | ${err?.message ?? String(error)}`
         }
     }
 }

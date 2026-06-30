@@ -10,3 +10,8 @@ note
 .playwright-chromium-installed
 .stfolder/
 .env
+/logs
+/.omo
+src/accounts.dev.json
+src/accounts.json
+src/config.json

@@ -15,7 +15,7 @@ export class AppReward extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'APP-REWARD',
-                'Skipping: App access token not available, this activity requires it!'
+                '跳过：应用访问令牌不可用，此活动需要它！'
             )
             return
         }
@@ -25,7 +25,7 @@ export class AppReward extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'APP-REWARD',
-            `Starting AppReward | offerId=${offerId} | country=${this.bot.userData.geoLocale} | oldBalance=${this.oldBalance}`
+            `开始 AppReward | offerId=${offerId} | 地区=${this.bot.userData.geoLocale} | 旧余额=${this.oldBalance}`
         )
 
         try {
@@ -42,7 +42,7 @@ export class AppReward extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Prepared activity payload | offerId=${offerId} | id=${jsonData.id} | amount=${jsonData.amount} | type=${jsonData.type} | country=${jsonData.country}`
+                `已准备活动负载 | offerId=${offerId} | id=${jsonData.id} | 数量=${jsonData.amount} | 类型=${jsonData.type} | 地区=${jsonData.country}`
             )
 
             const request: HttpRequestConfig = {
@@ -62,7 +62,7 @@ export class AppReward extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Sending activity request | offerId=${offerId} | url=${request.url}`
+                `正在发送活动请求 | offerId=${offerId} | url=${request.url}`
             )
 
             const response = await this.bot.http.request<{ response?: { balance?: number } }>(request)
@@ -70,7 +70,7 @@ export class AppReward extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Received activity response | offerId=${offerId} | status=${response.status}`
+                `已收到活动响应 | offerId=${offerId} | 状态=${response.status}`
             )
 
             const newBalance = Number(response?.data?.response?.balance ?? this.oldBalance)
@@ -79,7 +79,7 @@ export class AppReward extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Balance delta after AppReward | offerId=${offerId} | oldBalance=${this.oldBalance} | newBalance=${newBalance} | gainedPoints=${this.gainedPoints}`
+                `AppReward 后的积分变化 | offerId=${offerId} | 旧余额=${this.oldBalance} | 新余额=${newBalance} | 获得积分=${this.gainedPoints}`
             )
 
             if (this.gainedPoints > 0) {
@@ -89,31 +89,31 @@ export class AppReward extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'APP-REWARD',
-                    `Completed AppReward | offerId=${offerId} | gainedPoints=${this.gainedPoints} | oldBalance=${this.oldBalance} | newBalance=${newBalance}`,
+                    `AppReward 完成 | offerId=${offerId} | 获得积分=${this.gainedPoints} | 旧余额=${this.oldBalance} | 新余额=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'APP-REWARD',
-                    `Completed AppReward with no points | offerId=${offerId} | oldBalance=${this.oldBalance} | newBalance=${newBalance}`
+                    `AppReward 完成但未获得积分 | offerId=${offerId} | 旧余额=${this.oldBalance} | 新余额=${newBalance}`
                 )
             }
 
-            this.bot.logger.debug(this.bot.isMobile, 'APP-REWARD', `Waiting after AppReward | offerId=${offerId}`)
+            this.bot.logger.debug(this.bot.isMobile, 'APP-REWARD', `AppReward 后等待中 | offerId=${offerId}`)
 
             await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 10000))
 
             this.bot.logger.info(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Finished AppReward | offerId=${offerId} | finalBalance=${this.bot.userData.currentPoints}`
+                `AppReward 已完成 | offerId=${offerId} | 最终余额=${this.bot.userData.currentPoints}`
             )
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'APP-REWARD',
-                `Error in doAppReward | offerId=${offerId} | message=${error instanceof Error ? error.message : String(error)}`
+                `doAppReward 出错 | offerId=${offerId} | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

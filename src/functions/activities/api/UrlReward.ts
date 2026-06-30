@@ -10,21 +10,21 @@ export class UrlReward extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'URL-REWARD',
-                `Skipping ${offerId}: "reportActivity" not discovered in bundle`
+                `跳过 ${offerId}：未在 bundle 中发现 "reportActivity"`
             )
             return
         }
 
         const live = this.bot.reactSnapshot?.offers.find(o => o.offerId === offerId)
         if (!live) {
-            this.bot.logger.warn(this.bot.isMobile, 'URL-REWARD', `Skipping ${offerId}: not present in page snapshot`)
+            this.bot.logger.warn(this.bot.isMobile, 'URL-REWARD', `跳过 ${offerId}：页面快照中不存在`)
             return
         }
         if (!live.reportable) {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'URL-REWARD',
-                `Skipping ${offerId}: not reportable (completed/locked/no-hash/future-dated)`
+                `跳过 ${offerId}：不可上报（已完成/已锁定/无 hash/未来日期）`
             )
             return
         }
@@ -33,7 +33,7 @@ export class UrlReward extends Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'URL-REWARD',
-                `Skipping ${offerId}: awards no points (points=${live.points}${live.promotionSubtype ? ` subtype=${live.promotionSubtype}` : ''}) - likely a free trial/non-crediting offer. Set skipNonPointTasks=false to attempt anyway.`
+                `跳过 ${offerId}：不奖励积分（积分=${live.points}${live.promotionSubtype ? ` 子类型=${live.promotionSubtype}` : ''}）- 可能是免费试用/不计积分的活动。设置 skipNonPointTasks=false 可强制尝试。`
             )
             return
         }
@@ -45,7 +45,7 @@ export class UrlReward extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'URL-REWARD',
-            `Starting UrlReward | offerId=${offerId} | geo=${this.bot.userData.geoLocale} | oldBalance=${oldBalance}`
+            `开始 UrlReward | offerId=${offerId} | 地区=${this.bot.userData.geoLocale} | 旧余额=${oldBalance}`
         )
 
         try {
@@ -65,7 +65,7 @@ export class UrlReward extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'URL-REWARD',
-                `Response | offerId=${offerId} | status=${status} | acknowledged=${acknowledged} | gainedPoints=${gainedPoints}`
+                `响应 | offerId=${offerId} | 状态=${status} | 已确认=${acknowledged} | 获得积分=${gainedPoints}`
             )
 
             if (gainedPoints > 0) {
@@ -76,21 +76,21 @@ export class UrlReward extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'URL-REWARD',
-                    `Completed UrlReward | offerId=${offerId} | gainedPoints=${gainedPoints}${expectedPoints > 0 ? `/${expectedPoints}` : ''} | newBalance=${newBalance}${shortfall ? ' | WARNING: credited less than advertised' : ''}`,
+                    `UrlReward 完成 | offerId=${offerId} | 获得积分=${gainedPoints}${expectedPoints > 0 ? `/${expectedPoints}` : ''} | 新余额=${newBalance}${shortfall ? ' | 警告：实际到账少于宣传数量' : ''}`,
                     'green'
                 )
             } else if (acknowledged && expectedPoints === 0) {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'URL-REWARD',
-                    `Completed UrlReward (no points by design) | offerId=${offerId} | acknowledged=true | balance=${newBalance}`,
+                    `UrlReward 完成（设计上无积分） | offerId=${offerId} | 已确认=true | 余额=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'URL-REWARD',
-                    `UrlReward credited no points | offerId=${offerId} | acknowledged=${acknowledged} | expected=${expectedPoints} | balance=${newBalance}`
+                    `UrlReward 未到账积分 | offerId=${offerId} | 已确认=${acknowledged} | 预期=${expectedPoints} | 余额=${newBalance}`
                 )
             }
 
@@ -99,7 +99,7 @@ export class UrlReward extends Workers {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'URL-REWARD',
-                `Error in doUrlReward | offerId=${offerId} | message=${error instanceof Error ? error.message : String(error)}`
+                `doUrlReward 出错 | offerId=${offerId} | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

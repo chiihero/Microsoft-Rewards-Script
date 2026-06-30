@@ -31,10 +31,10 @@ export class MobileAccessLogin {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'LOGIN-APP',
-                `Auth URL constructed: ${authorizeUrl.origin}${authorizeUrl.pathname}`
+                `已构造认证 URL: ${authorizeUrl.origin}${authorizeUrl.pathname}`
             )
 
-            this.bot.logger.debug(this.bot.isMobile, 'LOGIN-APP', 'Resolving mobile OAuth code via request')
+            this.bot.logger.debug(this.bot.isMobile, 'LOGIN-APP', '通过请求解析移动端 OAuth 验证码')
 
             let code = ''
             try {
@@ -44,7 +44,7 @@ export class MobileAccessLogin {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'LOGIN-APP',
-                    `OAuth redirect resolved → ${finalUrl.origin}${finalUrl.pathname} (status ${resp.status()})`
+                    `OAuth 重定向已解析 → ${finalUrl.origin}${finalUrl.pathname} (状态 ${resp.status()})`
                 )
 
                 if (finalUrl.pathname === '/oauth20_desktop.srf') {
@@ -54,7 +54,7 @@ export class MobileAccessLogin {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'LOGIN-APP',
-                    `OAuth code request failed: ${err instanceof Error ? err.message : String(err)}`
+                    `OAuth 验证码请求失败: ${err instanceof Error ? err.message : String(err)}`
                 )
             }
 
@@ -62,12 +62,12 @@ export class MobileAccessLogin {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'LOGIN-APP',
-                    'Could not resolve mobile OAuth code - app activities will be skipped this run'
+                    '无法解析移动端 OAuth 验证码 - 本次运行将跳过应用活动'
                 )
                 return ''
             }
 
-            this.bot.logger.debug(this.bot.isMobile, 'LOGIN-APP', 'OAuth code resolved, exchanging for access token')
+            this.bot.logger.debug(this.bot.isMobile, 'LOGIN-APP', 'OAuth 验证码已解析, 正在换取访问令牌')
 
             const data = new URLSearchParams()
             data.append('grant_type', 'authorization_code')
@@ -85,22 +85,22 @@ export class MobileAccessLogin {
             const token = response?.data?.access_token ?? ''
 
             if (!token) {
-                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-APP', 'No access_token in token response')
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-APP', '令牌响应中没有 access_token')
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'LOGIN-APP',
-                    `Token response payload: ${JSON.stringify(response?.data)}`
+                    `令牌响应内容: ${JSON.stringify(response?.data)}`
                 )
                 return ''
             }
 
-            this.bot.logger.info(this.bot.isMobile, 'LOGIN-APP', 'Mobile access token received')
+            this.bot.logger.info(this.bot.isMobile, 'LOGIN-APP', '已收到移动端访问令牌')
             return token
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'LOGIN-APP',
-                `MobileAccess error: ${error instanceof Error ? error.stack || error.message : String(error)}`
+                `移动端访问错误: ${error instanceof Error ? error.stack || error.message : String(error)}`
             )
             return ''
         }

@@ -13,7 +13,7 @@ export class EmailLogin {
                 .waitForSelector(emailInputSelector, { state: 'visible', timeout: 1000 })
                 .catch(() => {})
             if (!emailField) {
-                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', 'Email field not found')
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', '未找到邮箱输入框')
                 return 'error'
             }
 
@@ -28,20 +28,20 @@ export class EmailLogin {
                 await page.fill(emailInputSelector, email).catch(() => {})
                 await this.bot.utils.wait(1000)
             } else {
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', 'Email prefilled')
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', '邮箱已预填')
             }
 
             await page.waitForSelector(this.submitButton, { state: 'visible', timeout: 2000 }).catch(() => {})
 
             await this.bot.browser.utils.ghostClick(page, this.submitButton)
-            this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', 'Email submitted')
+            this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-EMAIL', '邮箱已提交')
 
             return 'ok'
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'LOGIN-ENTER-EMAIL',
-                `An error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误: ${error instanceof Error ? error.message : String(error)}`
             )
             return 'error'
         }
@@ -54,7 +54,7 @@ export class EmailLogin {
                 .waitForSelector(passwordInputSelector, { state: 'visible', timeout: 1000 })
                 .catch(() => {})
             if (!passwordField) {
-                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-ENTER-PASSWORD', 'Password field not found')
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-ENTER-PASSWORD', '未找到密码输入框')
                 return 'error'
             }
 
@@ -70,7 +70,7 @@ export class EmailLogin {
 
             if (submitButton) {
                 await this.bot.browser.utils.ghostClick(page, this.submitButton)
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-PASSWORD', 'Password submitted')
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-ENTER-PASSWORD', '密码已提交')
             }
 
             return 'ok'
@@ -78,7 +78,7 @@ export class EmailLogin {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'LOGIN-ENTER-PASSWORD',
-                `An error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误: ${error instanceof Error ? error.message : String(error)}`
             )
             return 'error'
         }

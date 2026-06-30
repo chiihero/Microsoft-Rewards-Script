@@ -28,7 +28,7 @@ export class Search extends Workers {
 
     public async doSearch(page: Page, isMobile: boolean): Promise<number> {
         const startBalance = Number(this.bot.userData.currentPoints ?? 0)
-        this.bot.logger.info(isMobile, 'SEARCH-BING', `Starting Bing searches | currentPoints=${startBalance}`)
+        this.bot.logger.info(isMobile, 'SEARCH-BING', `开始 Bing 搜索 | 当前积分=${startBalance}`)
 
         const tracker = new PointsTracker(this.bot, isMobile)
         try {
@@ -38,14 +38,14 @@ export class Search extends Workers {
                 this.bot.logger.warn(
                     isMobile,
                     tracker.context,
-                    `Hit the ${tracker.maxSearches}-search ceiling with points still missing | ${tracker.progress()}`
+                    `达到 ${tracker.maxSearches} 次搜索上限但积分仍有剩余 | ${tracker.progress()}`
                 )
             }
 
             this.bot.logger.info(
                 isMobile,
                 tracker.context,
-                `Completed Bing searches | startBalance=${startBalance} | gained=${stats.totalGained} | searches=${stats.performed} | ${tracker.progress()}`
+                `Bing 搜索完成 | 起始余额=${startBalance} | 获得=${stats.totalGained} | 搜索次数=${stats.performed} | ${tracker.progress()}`
             )
             return stats.totalGained
         } finally {
@@ -76,7 +76,7 @@ export class Search extends Workers {
         this.bot.logger.info(
             isMobile,
             tracker.context,
-            `Bonus farming ${done ? 'complete' : 'stopped'} (${reason}) | ${tracker.progress()} | searches=${stats.performed} | gained=+${stats.totalGained}`,
+            `奖励刷取${done ? '完成' : '已停止'} (${reason}) | ${tracker.progress()} | 搜索次数=${stats.performed} | 获得=+${stats.totalGained}`,
             done || stats.totalGained > 0 ? 'green' : undefined
         )
         return stats.totalGained
@@ -92,10 +92,10 @@ export class Search extends Workers {
             const queryCore = new QueryCore(this.bot)
             let queries = await this.generatePool(queryCore)
             if (!queries.length) {
-                this.bot.logger.warn(isMobile, tracker.context, 'No queries available, skipping')
+                this.bot.logger.warn(isMobile, tracker.context, '没有可用的查询词，跳过')
                 return stats
             }
-            this.bot.logger.info(isMobile, tracker.context, `Query pool ready | count=${queries.length}`)
+            this.bot.logger.info(isMobile, tracker.context, `查询词池就绪 | 数量=${queries.length}`)
 
             await page.goto(URLs.bing.origin)
             await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {})
@@ -109,10 +109,10 @@ export class Search extends Workers {
                     const extra = await this.generatePool(queryCore)
                     queries = this.bot.utils.shuffleArray([...new Set([...queries, ...extra])])
                     if (index >= queries.length) {
-                        this.bot.logger.warn(isMobile, tracker.context, 'Query pool exhausted, stopping')
+                        this.bot.logger.warn(isMobile, tracker.context, '查询词池已耗尽，停止')
                         break
                     }
-                    this.bot.logger.debug(isMobile, tracker.context, `Query pool regenerated | count=${queries.length}`)
+                    this.bot.logger.debug(isMobile, tracker.context, `查询词池已重新生成 | 数量=${queries.length}`)
                 }
 
                 // Query still has to be decoded, RSS entries often have html entities, but to add a whole dependancy for that? Doesn't look natural however
@@ -135,7 +135,7 @@ export class Search extends Workers {
                     this.bot.logger.info(
                         isMobile,
                         tracker.context,
-                        `no points ${stats.stagnant}/${tracker.stagnantLimit} | query="${query}" | ${tracker.progress()}`
+                        `未获得积分 ${stats.stagnant}/${tracker.stagnantLimit} | query="${query}" | ${tracker.progress()}`
                     )
                 }
             }
@@ -145,7 +145,7 @@ export class Search extends Workers {
             this.bot.logger.error(
                 isMobile,
                 tracker.context,
-                `Search session error | ${error instanceof Error ? error.message : String(error)}`
+                `搜索会话出错 | ${error instanceof Error ? error.message : String(error)}`
             )
             return stats
         }
@@ -208,7 +208,7 @@ export class Search extends Workers {
                 this.bot.logger.warn(
                     isMobile,
                     'SEARCH-BING',
-                    `Search attempt ${attempt}/${MAX_QUERY_ATTEMPTS} failed | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
+                    `第 ${attempt}/${MAX_QUERY_ATTEMPTS} 次搜索尝试失败 | query="${query}" | ${error instanceof Error ? error.message : String(error)}`
                 )
                 await this.bot.utils.wait(2000)
             }
@@ -225,7 +225,7 @@ export class Search extends Workers {
             this.bot.logger.error(
                 isMobile,
                 'SEARCH-RANDOM-SCROLL',
-                `Failed during random scroll | ${error instanceof Error ? error.message : String(error)}`
+                `随机滚动失败 | ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -246,7 +246,7 @@ export class Search extends Workers {
             this.bot.logger.error(
                 isMobile,
                 'SEARCH-RANDOM-CLICK',
-                `Failed during random click | ${error instanceof Error ? error.message : String(error)}`
+                `随机点击失败 | ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -275,7 +275,7 @@ class PointsTracker implements SearchTracker {
         this.bot.logger.info(
             this.isMobile,
             this.context,
-            `Search points remaining | edge=${this.missing.edgePoints} | desktop=${this.missing.desktopPoints} | mobile=${this.missing.mobilePoints}`
+            `剩余搜索积分 | Edge=${this.missing.edgePoints} | 桌面端=${this.missing.desktopPoints} | 移动端=${this.missing.mobilePoints}`
         )
 
         if (this.missing.totalPoints <= 0) {
@@ -283,14 +283,14 @@ class PointsTracker implements SearchTracker {
                 this.bot.logger.info(
                     this.isMobile,
                     this.context,
-                    'No search points to earn, skipping (runOnZeroPoints is disabled)'
+                    '没有可获得的搜索积分，跳过 (runOnZeroPoints 已禁用)'
                 )
                 return false
             }
             this.bot.logger.info(
                 this.isMobile,
                 this.context,
-                'No search points reported, but runOnZeroPoints is enabled, searching anyway'
+                '没有报告搜索积分，但 runOnZeroPoints 已启用，继续搜索'
             )
         }
         return true

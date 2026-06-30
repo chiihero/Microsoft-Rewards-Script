@@ -21,7 +21,7 @@ export class SearchManager {
         this.bot.logger.info(
             'main',
             'SEARCH-MANAGER',
-            `Mobile: ${this.status(this.bot.config.workers.doMobileSearch, mobileMissing)} | Desktop: ${this.status(
+            `移动端: ${this.status(this.bot.config.workers.doMobileSearch, mobileMissing)} | 桌面端: ${this.status(
                 this.bot.config.workers.doDesktopSearch,
                 desktopMissing
             )}`
@@ -36,7 +36,7 @@ export class SearchManager {
 
         if (doMobile || doDesktop) {
             const parallel = this.bot.config.searchSettings.parallelSearching
-            this.bot.logger.info('main', 'SEARCH-MANAGER', `Running ${parallel ? 'in parallel' : 'sequentially'}`)
+            this.bot.logger.info('main', 'SEARCH-MANAGER', `运行方式: ${parallel ? '并行' : '顺序'}`)
 
             if (parallel) {
                 ;[mobilePoints, desktopPoints] = await Promise.all([
@@ -62,7 +62,7 @@ export class SearchManager {
         this.bot.logger.info(
             'main',
             'SEARCH-MANAGER',
-            `Search summary | mobile=${mobilePoints} | desktop=${desktopPoints} | total=${mobilePoints + desktopPoints}`
+            `搜索汇总 | 移动端=${mobilePoints} | 桌面端=${desktopPoints} | 总计=${mobilePoints + desktopPoints}`
         )
         return { mobilePoints, desktopPoints }
     }
@@ -70,7 +70,7 @@ export class SearchManager {
     async doBonusSearches(account: Account): Promise<number> {
         if (!this.bot.config.workers.doBonusSearches) return 0
 
-        this.bot.logger.info('main', 'SEARCH-MANAGER', 'Starting bonus search farming')
+        this.bot.logger.info('main', 'SEARCH-MANAGER', '开始奖励搜索刷取')
 
         const gained = await executionContext.run({ isMobile: true, account }, async () => {
             try {
@@ -79,7 +79,7 @@ export class SearchManager {
                 this.bot.logger.error(
                     'main',
                     'SEARCH-MANAGER',
-                    `Bonus search failed | ${error instanceof Error ? error.message : String(error)}`
+                    `奖励搜索失败 | ${error instanceof Error ? error.message : String(error)}`
                 )
                 return 0
             } finally {
@@ -87,7 +87,7 @@ export class SearchManager {
             }
         })
 
-        this.bot.logger.info('main', 'SEARCH-MANAGER', `Bonus search summary | gained=+${gained}`)
+        this.bot.logger.info('main', 'SEARCH-MANAGER', `奖励搜索汇总 | 获得=+${gained}`)
         return gained
     }
 
@@ -99,7 +99,7 @@ export class SearchManager {
                 this.bot.logger.error(
                     'main',
                     'SEARCH-MANAGER',
-                    `Mobile search failed | ${error instanceof Error ? error.message : String(error)}`
+                    `移动端搜索失败 | ${error instanceof Error ? error.message : String(error)}`
                 )
                 return 0
             }
@@ -115,7 +115,7 @@ export class SearchManager {
                 this.bot.logger.error(
                     'main',
                     'SEARCH-MANAGER',
-                    `Desktop search failed | ${error instanceof Error ? error.message : String(error)}`
+                    `桌面端搜索失败 | ${error instanceof Error ? error.message : String(error)}`
                 )
                 return 0
             } finally {

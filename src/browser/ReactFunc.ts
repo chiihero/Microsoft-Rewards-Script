@@ -86,7 +86,7 @@ export default class ReactFunc {
         this.bot.logger.info(
             this.bot.isMobile,
             'REACT-PARSE',
-            `Snapshot complete | offers=${offers.length} | reportable=${offers.filter(o => o.reportable).length} | streaks=${streaks.length} | protection=${streakProtection ? `on=${streakProtection.isProtectionOn},days=${streakProtection.remainingDays ?? '?'}` : 'n/a'} | level=${account.level}`
+            `快照完成 | 活动=${offers.length} | 可上报=${offers.filter(o => o.reportable).length} | 连击=${streaks.length} | 保护=${streakProtection ? `开启=${streakProtection.isProtectionOn},天数=${streakProtection.remainingDays ?? '?'}` : '无'} | 等级=${account.level}`
         )
 
         return {
@@ -131,7 +131,7 @@ export default class ReactFunc {
                     this.bot.logger.debug(
                         this.bot.isMobile,
                         'REACT-PARSE',
-                        `Skipped undecodable flight chunk | error=${err instanceof Error ? err.message : String(err)}`
+                        `跳过无法解码的 flight 数据块 | 错误=${err instanceof Error ? err.message : String(err)}`
                     )
                 }
             }
@@ -139,14 +139,14 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Concatenated flight chunks | chunks=${count} | length=${combined.length}`
+                `已拼接 flight 数据块 | 块数=${count} | 长度=${combined.length}`
             )
 
             if (count === 0) {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'REACT-PARSE',
-                    'No __next_f flight chunks found - page may not be an RSC render or markup changed'
+                    '未找到 __next_f flight 数据块 - 页面可能不是 RSC 渲染或标记已变更'
                 )
             }
 
@@ -155,7 +155,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed concatenating flight chunks | error=${error instanceof Error ? error.message : String(error)}`
+                `拼接 flight 数据块失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return ''
         }
@@ -220,7 +220,7 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `extractObjects("${anchor}") had ${failures} unparseable matches`
+                `extractObjects("${anchor}") 有 ${failures} 个无法解析的匹配`
             )
         }
 
@@ -268,7 +268,7 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Parsed offers | total=${offers.length} | reportable=${offers.filter(o => o.reportable).length}`
+                `已解析活动 | 总数=${offers.length} | 可上报=${offers.filter(o => o.reportable).length}`
             )
 
             return offers
@@ -276,7 +276,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing offers | error=${error instanceof Error ? error.message : String(error)}`
+                `解析活动失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -305,7 +305,7 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Parsed streaks | ${unique.map(s => `${s.partner}:${s.completedDays}/${s.totalDays}`).join(', ') || 'none'}`
+                `已解析连击 | ${unique.map(s => `${s.partner}:${s.completedDays}/${s.totalDays}`).join(', ') || '无'}`
             )
 
             return unique
@@ -313,7 +313,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing streaks | error=${error instanceof Error ? error.message : String(error)}`
+                `解析连击失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -336,7 +336,7 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Parsed streak protection | on=${state.isProtectionOn} | remainingDays=${state.remainingDays ?? 'n/a'}`
+                `已解析连击保护 | 开启=${state.isProtectionOn} | 剩余天数=${state.remainingDays ?? '无'}`
             )
 
             return state
@@ -344,7 +344,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing streak protection | error=${error instanceof Error ? error.message : String(error)}`
+                `解析连击保护失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return null
         }
@@ -379,14 +379,14 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Parsed account | level=${account.level} | available=${account.availablePoints} | toGo=${account.pointsRemaining} | lifetime=${account.lifetimeEarn}`
+                `已解析账户 | 等级=${account.level} | 可用=${account.availablePoints} | 剩余=${account.pointsRemaining} | 总计=${account.lifetimeEarn}`
             )
 
             if (account.level === null && account.availablePoints === null) {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'REACT-PARSE',
-                    'Account state empty - membership/header objects not found in payload'
+                    '账户状态为空 - 载荷中未找到 membership/header 对象'
                 )
             }
 
@@ -395,7 +395,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing account | error=${error instanceof Error ? error.message : String(error)}`
+                `解析账户失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return empty
         }
@@ -505,21 +505,21 @@ export default class ReactFunc {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Extracted action ids | named=${Object.keys(byName).length} | total=${all.size}`
+                `已提取 action id | 命名=${Object.keys(byName).length} | 总数=${all.size}`
             )
 
             if (all.size === 0) {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'REACT-PARSE',
-                    'No server-action ids found in JS chunk - wrong chunk, or bundler output changed'
+                    'JS 数据块中未找到 server-action id - 数据块错误，或打包输出已变更'
                 )
             }
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed extracting action ids | error=${error instanceof Error ? error.message : String(error)}`
+                `提取 action id 失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
         }
 
@@ -535,7 +535,7 @@ export default class ReactFunc {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Quest snapshot | children=${children.length} | reportable=${children.filter(c => c.reportable).length}`
+                `任务快照 | 子任务=${children.length} | 可上报=${children.filter(c => c.reportable).length}`
             )
 
             return children
@@ -543,7 +543,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing quest page | error=${error instanceof Error ? error.message : String(error)}`
+                `解析任务页面失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }
@@ -591,7 +591,7 @@ export default class ReactFunc {
         this.bot.logger.debug(
             this.bot.isMobile,
             'REACT-PARSE',
-            `Parsed quest children | total=${out.length} | reportable=${out.filter(c => c.reportable).length}`
+            `已解析任务子项 | 总数=${out.length} | 可上报=${out.filter(c => c.reportable).length}`
         )
 
         return out
@@ -645,18 +645,18 @@ export default class ReactFunc {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Quest list | parents=${out.length} | incomplete=${out.filter(q => !q.complete).length}`
+                `任务列表 | 父任务=${out.length} | 未完成=${out.filter(q => !q.complete).length}`
             )
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Quest points | ${out.map(q => `${q.title || q.offerId}=${q.pointProgressMax}`).join(' | ') || 'none'}`
+                `任务积分 | ${out.map(q => `${q.title || q.offerId}=${q.pointProgressMax}`).join(' | ') || '无'}`
             )
             if (!out.length) {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'REACT-PARSE',
-                    'No parent quests parsed - the fetched HTML may be missing the QuestSection chunks (Suspense/streaming or a login redirect)'
+                    '未解析到父任务 - 抓取的 HTML 可能缺少 QuestSection 数据块（Suspense/流式渲染或登录重定向）'
                 )
             }
             return out
@@ -664,7 +664,7 @@ export default class ReactFunc {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'REACT-PARSE',
-                `Failed parsing quest list | error=${error instanceof Error ? error.message : String(error)}`
+                `解析任务列表失败 | 错误=${error instanceof Error ? error.message : String(error)}`
             )
             return []
         }

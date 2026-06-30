@@ -16,7 +16,7 @@ export class EnsureStreakProtection extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                `Skipping: streak-protection action id not discovered in bundle (looked for [${STREAK_PROTECTION_ACTION_NAMES.join(', ')}] + any "*streak*protect*" key)`
+                `跳过：未在 bundle 中发现连击保护的 action id（已查找 [${STREAK_PROTECTION_ACTION_NAMES.join(', ')}] 及任何 "*streak*protect*" 键）`
             )
             return
         }
@@ -27,7 +27,7 @@ export class EnsureStreakProtection extends Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                `Already enabled (remainingDays=${before.remainingDays ?? '?'})`,
+                `连击保护已启用（剩余天数=${before.remainingDays ?? '?'}）`,
                 'green'
             )
             return
@@ -37,7 +37,7 @@ export class EnsureStreakProtection extends Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                'No protection days remaining - toggle is disabled, skipping'
+                '没有剩余的保护天数 - 开关已被禁用，跳过'
             )
             return
         }
@@ -46,7 +46,7 @@ export class EnsureStreakProtection extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'ENABLE-STREAK-PROTECTION',
-            `Starting EnsureStreakProtection | action=${resolved.name} | before=${beforeDesc}`
+            `开始确保连击保护 | action=${resolved.name} | 之前=${beforeDesc}`
         )
 
         try {
@@ -62,20 +62,20 @@ export class EnsureStreakProtection extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',
-                    `Completed | isProtectionOn=true | remainingDays=${after.remainingDays ?? '?'} | status=${status}`,
+                    `已完成 | 连击保护已启用=true | 剩余天数=${after.remainingDays ?? '?'} | 状态=${status}`,
                     'green'
                 )
             } else if (after === null) {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',
-                    `Fired but could not confirm state from a fresh snapshot | acknowledged=${acknowledged} | status=${status}`
+                    `已触发但无法从最新快照确认状态 | 已确认=${acknowledged} | 状态=${status}`
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',
-                    `Toggle did not take - still off after firing | status=${status}`
+                    `开关未生效 - 触发后仍然关闭 | 状态=${status}`
                 )
             }
 
@@ -84,7 +84,7 @@ export class EnsureStreakProtection extends Workers {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                `Error in ensureStreakProtection | message=${error instanceof Error ? error.message : String(error)}`
+                `ensureStreakProtection 出错 | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -97,7 +97,7 @@ export class EnsureStreakProtection extends Workers {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'ENABLE-STREAK-PROTECTION',
-                    `Verify fetch failed | status=${res.status()}`
+                    `验证请求失败 | 状态=${res.status()}`
                 )
                 return null
             }
@@ -106,7 +106,7 @@ export class EnsureStreakProtection extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'ENABLE-STREAK-PROTECTION',
-                `Verify read errored | ${error instanceof Error ? error.message : String(error)}`
+                `验证读取出错 | ${error instanceof Error ? error.message : String(error)}`
             )
             return null
         }

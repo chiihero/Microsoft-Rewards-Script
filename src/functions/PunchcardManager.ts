@@ -17,7 +17,7 @@ export class PunchcardManager {
             this.bot.logger.error(
                 'main',
                 'PUNCHCARD-MANAGER',
-                `Mobile punchcards failed | ${error instanceof Error ? error.message : String(error)}`
+                `移动端打卡失败 | ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -32,7 +32,7 @@ export class PunchcardManager {
                 this.bot.logger.error(
                     'main',
                     'PUNCHCARD-MANAGER',
-                    `Desktop punchcards failed | ${error instanceof Error ? error.message : String(error)}`
+                    `桌面端打卡失败 | ${error instanceof Error ? error.message : String(error)}`
                 )
             } finally {
                 await this.bot.browser.func.closeBrowser(session.context, account.email).catch(() => {})

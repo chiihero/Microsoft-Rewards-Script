@@ -70,7 +70,7 @@ class Browser {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'BROWSER',
-                `Launching bundled patched Chromium (Edge UA) | headless: ${headless} | platform: ${process.platform} | proxy: ${hasProxy ? 'yes (TLS errors ignored)' : 'no (TLS validated)'}`
+                `正在启动内置补丁版 Chromium（Edge UA） | 无头模式：${headless} | 平台：${process.platform} | 代理：${hasProxy ? '是（忽略 TLS 错误）' : '否（验证 TLS）'}`
             )
 
             browser = await rebrowser.chromium.launch({
@@ -80,7 +80,7 @@ class Browser {
             })
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
-            this.bot.logger.error(this.bot.isMobile, 'BROWSER', `Browser launch failed: ${errorMessage}`)
+            this.bot.logger.error(this.bot.isMobile, 'BROWSER', `浏览器启动失败：${errorMessage}`)
             throw error
         }
 
@@ -152,10 +152,10 @@ class Browser {
 
             context.on('page', p => {
                 p.on('crash', () =>
-                    this.bot.logger.error(this.bot.isMobile, 'BROWSER', `Renderer crashed | ${p.url()}`)
+                    this.bot.logger.error(this.bot.isMobile, 'BROWSER', `渲染进程崩溃 | ${p.url()}`)
                 )
             })
-            context.on('close', () => this.bot.logger.warn(this.bot.isMobile, 'BROWSER', 'Browser context closed'))
+            context.on('close', () => this.bot.logger.warn(this.bot.isMobile, 'BROWSER', '浏览器上下文已关闭'))
 
             context.setDefaultTimeout(this.bot.utils.stringToNumber(this.bot.config?.globalTimeout ?? 30000))
 
@@ -166,7 +166,7 @@ class Browser {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'BROWSER',
-                `Created context | User-Agent: "${fingerprint.fingerprint.navigator.userAgent}"`
+                `已创建上下文 | User-Agent："${fingerprint.fingerprint.navigator.userAgent}"`
             )
             this.bot.logger.debug(this.bot.isMobile, 'BROWSER-FINGERPRINT', JSON.stringify(fingerprint))
 

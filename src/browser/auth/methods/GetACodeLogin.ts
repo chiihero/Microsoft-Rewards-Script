@@ -18,24 +18,24 @@ export class CodeLogin {
 
             if (visibleInput) {
                 await page.keyboard.type(code, { delay: 50 })
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `Filled code input: "${code}" `)
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `已填写验证码输入框: "${code}" `)
                 return true
             }
 
             const secondairyInput = await page.$(this.secondairyInputSelector)
             if (secondairyInput) {
                 await page.keyboard.type(code, { delay: 50 })
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `Filled code input: "${code}" `)
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `已填写验证码输入框: "${code}" `)
                 return true
             }
 
-            this.bot.logger.warn(this.bot.isMobile, 'LOGIN-CODE', 'No code input field found')
+            this.bot.logger.warn(this.bot.isMobile, 'LOGIN-CODE', '未找到验证码输入框')
             return false
         } catch (error) {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'LOGIN-CODE',
-                `Failed to fill code input: ${error instanceof Error ? error.message : String(error)}`
+                `填写验证码输入框失败: ${error instanceof Error ? error.message : String(error)}`
             )
             return false
         }
@@ -43,13 +43,13 @@ export class CodeLogin {
 
     async handle(page: Page): Promise<void> {
         try {
-            this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', 'Code login authentication requested')
+            this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', '已请求验证码登录认证')
 
             const emailMessage = await getSubtitleMessage(page)
             if (emailMessage) {
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `Page message: "${emailMessage}"`)
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', `页面消息: "${emailMessage}"`)
             } else {
-                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-CODE', 'Unable to retrieve email code destination')
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-CODE', '无法获取邮箱验证码发送目标')
             }
 
             for (let attempt = 1; attempt <= this.maxManualAttempts; attempt++) {
@@ -63,7 +63,7 @@ export class CodeLogin {
                     this.bot.logger.warn(
                         this.bot.isMobile,
                         'LOGIN-CODE',
-                        `Invalid or missing code (attempt ${attempt}/${this.maxManualAttempts}) | input length=${code?.length}`
+                        `无效或缺失的验证码 (第 ${attempt}/${this.maxManualAttempts} 次尝试) | 输入长度=${code?.length}`
                     )
 
                     if (attempt === this.maxManualAttempts) {
@@ -77,7 +77,7 @@ export class CodeLogin {
                     this.bot.logger.error(
                         this.bot.isMobile,
                         'LOGIN-CODE',
-                        `Unable to fill code input (attempt ${attempt}/${this.maxManualAttempts})`
+                        `无法填写验证码输入框 (第 ${attempt}/${this.maxManualAttempts} 次尝试)`
                     )
 
                     if (attempt === this.maxManualAttempts) {
@@ -95,7 +95,7 @@ export class CodeLogin {
                     this.bot.logger.warn(
                         this.bot.isMobile,
                         'LOGIN-CODE',
-                        `Incorrect code: ${errorMessage} (attempt ${attempt}/${this.maxManualAttempts})`
+                        `验证码错误: ${errorMessage} (第 ${attempt}/${this.maxManualAttempts} 次尝试)`
                     )
 
                     if (attempt === this.maxManualAttempts) {
@@ -112,7 +112,7 @@ export class CodeLogin {
                     continue
                 }
 
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', 'Code authentication completed successfully')
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', '验证码认证完成成功')
                 return
             }
 
@@ -121,7 +121,7 @@ export class CodeLogin {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'LOGIN-CODE',
-                `Error occurred: ${error instanceof Error ? error.message : String(error)}`
+                `发生错误: ${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }

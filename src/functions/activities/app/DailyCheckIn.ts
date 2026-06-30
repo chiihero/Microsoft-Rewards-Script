@@ -13,7 +13,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                'Skipping: App access token not available, this activity requires it!'
+                '跳过：应用访问令牌不可用，此活动需要它！'
             )
             return
         }
@@ -23,7 +23,7 @@ export class DailyCheckIn extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'DAILY-CHECK-IN',
-            `Starting Daily Check-In | geo=${this.bot.userData.geoLocale} | currentPoints=${this.oldBalance}`
+            `开始每日签到 | 地区=${this.bot.userData.geoLocale} | 当前积分=${this.oldBalance}`
         )
 
         try {
@@ -32,7 +32,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Received Daily Check-In response | status=${response?.status ?? 'unknown'}`
+                `已收到每日签到响应 | 状态=${response?.status ?? 'unknown'}`
             )
 
             const newBalance = Number(response?.data?.response?.balance ?? this.oldBalance)
@@ -41,7 +41,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Balance delta after Daily Check-In | type=103 | oldBalance=${this.oldBalance} | newBalance=${newBalance} | gainedPoints=${this.gainedPoints}`
+                `每日签到后的积分变化 | 类型=103 | 旧余额=${this.oldBalance} | 新余额=${newBalance} | 获得积分=${this.gainedPoints}`
             )
 
             if (this.gainedPoints > 0) {
@@ -51,21 +51,21 @@ export class DailyCheckIn extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'DAILY-CHECK-IN',
-                    `Completed Daily Check-In | type=103 | gainedPoints=${this.gainedPoints} | oldBalance=${this.oldBalance} | newBalance=${newBalance}`,
+                    `每日签到完成 | 类型=103 | 获得积分=${this.gainedPoints} | 旧余额=${this.oldBalance} | 新余额=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'DAILY-CHECK-IN',
-                    `Daily Check-In completed but no points gained | type=103 | oldBalance=${this.oldBalance} | finalBalance=${newBalance}`
+                    `每日签到已完成但未获得积分 | 类型=103 | 旧余额=${this.oldBalance} | 最终余额=${newBalance}`
                 )
             }
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Error during Daily Check-In | message=${error instanceof Error ? error.message : String(error)}`
+                `每日签到出错 | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -85,7 +85,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Preparing Daily Check-In payload | type=${jsonData.type} | id=${jsonData.id} | amount=${jsonData.amount} | country=${jsonData.country}`
+                `正在准备每日签到的负载 | 类型=${jsonData.type} | id=${jsonData.id} | 数量=${jsonData.amount} | 地区=${jsonData.country}`
             )
 
             const request: HttpRequestConfig = {
@@ -110,7 +110,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Sending Daily Check-In request | type=${jsonData.type} | url=${request.url}`
+                `正在发送每日签到请求 | 类型=${jsonData.type} | url=${request.url}`
             )
 
             return this.bot.http.request<{ response?: { balance?: number } }>(request)
@@ -118,7 +118,7 @@ export class DailyCheckIn extends Workers {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `Error in submitDaily | message=${error instanceof Error ? error.message : String(error)}`
+                `submitDaily 出错 | 消息=${error instanceof Error ? error.message : String(error)}`
             )
             throw error
         }

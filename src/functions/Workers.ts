@@ -19,15 +19,15 @@ export class Workers {
         const activitiesUncompleted = todayData?.filter(x => !x?.complete && x.pointProgressMax > 0) ?? []
 
         if (!activitiesUncompleted.length) {
-            this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', 'All "Daily Set" items have already been completed')
+            this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', '所有"每日任务"项目已完成')
             return
         }
 
-        this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', 'Started solving "Daily Set" items')
+        this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', '开始处理"每日任务"项目')
 
         await this.solveActivities(activitiesUncompleted)
 
-        this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', 'All "Daily Set" items have been completed')
+        this.bot.logger.info(this.bot.isMobile, 'DAILY-SET', '所有"每日任务"项目已完成')
     }
 
     public async doMorePromotions(data: DashboardData) {
@@ -57,7 +57,7 @@ export class Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'MORE-PROMOTIONS',
-                'All "More Promotion" items have already been completed'
+                '所有"更多推广"项目已完成'
             )
             return
         }
@@ -65,12 +65,12 @@ export class Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'MORE-PROMOTIONS',
-            `Started solving ${activitiesUncompleted.length} "More Promotions" items`
+            `开始处理 ${activitiesUncompleted.length} 个"更多推广"项目`
         )
 
         await this.solveActivities(activitiesUncompleted)
 
-        this.bot.logger.info(this.bot.isMobile, 'MORE-PROMOTIONS', 'All "More Promotion" items have been completed')
+        this.bot.logger.info(this.bot.isMobile, 'MORE-PROMOTIONS', '所有"更多推广"项目已完成')
     }
 
     public async doAppPromotions(data: AppDashboardData) {
@@ -87,7 +87,7 @@ export class Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'APP-PROMOTIONS',
-                'All "App Promotions" items have already been completed'
+                '所有"应用推广"项目已完成'
             )
             return
         }
@@ -97,7 +97,7 @@ export class Workers {
             await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 15000))
         }
 
-        this.bot.logger.info(this.bot.isMobile, 'APP-PROMOTIONS', 'All "App Promotions" items have been completed')
+        this.bot.logger.info(this.bot.isMobile, 'APP-PROMOTIONS', '所有"应用推广"项目已完成')
     }
 
     public async doPunchCards(data: DashboardData, page: Page) {
@@ -106,7 +106,7 @@ export class Workers {
         try {
             const earn = await page.request.get(URLs.rewards.earn)
             if (!earn.ok()) {
-                this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `/earn ${earn.status()} - cannot list quests`)
+                this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `/earn ${earn.status()} - 无法获取任务列表`)
                 return
             }
             const html = await earn.text()
@@ -121,7 +121,7 @@ export class Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'PUNCHCARD',
-                `Failed fetching /earn for quest list | ${error instanceof Error ? error.message : String(error)}`
+                `获取任务列表 /earn 失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return
         }
@@ -157,14 +157,14 @@ export class Workers {
             return true
         })
         if (!incomplete.length) {
-            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', 'No actionable quests')
+            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', '没有可执行的任务')
             return
         }
 
         this.bot.logger.info(
             this.bot.isMobile,
             'PUNCHCARD',
-            `Found ${incomplete.length} incomplete quest(s) on /earn | api-matched=${incomplete.filter(p => apiById.has(p.offerId)).length}`
+            `在 /earn 上发现 ${incomplete.length} 个未完成的任务 | api 匹配数=${incomplete.filter(p => apiById.has(p.offerId)).length}`
         )
 
         for (const parent of incomplete) {
@@ -174,19 +174,19 @@ export class Workers {
                 this.bot.logger.error(
                     this.bot.isMobile,
                     'PUNCHCARD',
-                    `Error solving quest "${parent.title || parent.offerId}" | message=${error instanceof Error ? error.message : String(error)}`
+                    `处理任务 "${parent.title || parent.offerId}" 时出错 | 消息=${error instanceof Error ? error.message : String(error)}`
                 )
             }
         }
 
-        this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', 'Finished processing quests')
+        this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', '任务处理完成')
     }
 
     public async doClaimBonusPoints(data: DashboardData) {
         const pointsActivity = data.dashboard.pointClaimBannerPromotion
 
         if (!pointsActivity) {
-            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', 'No claim bonus points banner found')
+            this.bot.logger.info(this.bot.isMobile, 'CLAIM-BONUS-POINTS', '未找到领取奖励积分横幅')
             return
         }
 
@@ -194,7 +194,7 @@ export class Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Bonus points have already been claimed | offerId=${pointsActivity.offerId}`
+                `奖励积分已被领取 | offerId=${pointsActivity.offerId}`
             )
             return
         }
@@ -204,7 +204,7 @@ export class Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'CLAIM-BONUS-POINTS',
-            `Bonus points have been claimed | title="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
+            `已领取奖励积分 | 标题="${pointsActivity.title}" | offerId=${pointsActivity.offerId}`
         )
     }
 
@@ -219,7 +219,7 @@ export class Workers {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'PUNCHCARD',
-                    `Quest page ${res.status()} for "${title}" - skipping`
+                    `"${title}" 的任务页 ${res.status()} - 跳过`
                 )
                 return
             }
@@ -228,13 +228,13 @@ export class Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'PUNCHCARD',
-                `Failed fetching quest page for "${title}" | ${error instanceof Error ? error.message : String(error)}`
+                `获取 "${title}" 的任务页失败 | ${error instanceof Error ? error.message : String(error)}`
             )
             return
         }
 
         if (!questChildren.length) {
-            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', `No actionable children rendered for "${title}"`)
+            this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', `"${title}" 未渲染出可执行的子任务`)
             return
         }
 
@@ -250,7 +250,7 @@ export class Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'PUNCHCARD',
-            `Solving "${title}" | children=${ordered.length} | reportable=${ordered.filter(c => c.reportable).length}`
+            `正在处理 "${title}" | 子任务数=${ordered.length} | 可上报数=${ordered.filter(c => c.reportable).length}`
         )
 
         const startBalance = this.bot.userData.currentPoints
@@ -266,14 +266,14 @@ export class Workers {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'PUNCHCARD',
-                    `Skip ${offerId}: not reportable (locked=${child.isLocked} disabled=${child.isDisabled} done=${child.isCompleted} hash=${!!child.hash})`
+                    `跳过 ${offerId}: 不可上报 (已锁定=${child.isLocked} 已禁用=${child.isDisabled} 已完成=${child.isCompleted} hash=${!!child.hash})`
                 )
                 continue
             }
 
             if (this.isSearchQuotaChild(offerId, api)) {
                 remaining++
-                this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', `Skip ${offerId}: multi-day search task`)
+                this.bot.logger.info(this.bot.isMobile, 'PUNCHCARD', `跳过 ${offerId}: 多日搜索任务`)
                 continue
             }
 
@@ -283,7 +283,7 @@ export class Workers {
                     this.bot.logger.info(
                         this.bot.isMobile,
                         'PUNCHCARD',
-                        `Reward for "${title}" ready to claim - left for manual redemption (autoClaimPunchcardRewards=false) | ${offerId}`
+                        `"${title}" 的奖励可领取 - 留待手动兑换 (autoClaimPunchcardRewards=false) | ${offerId}`
                     )
                     continue
                 }
@@ -301,7 +301,7 @@ export class Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'PUNCHCARD',
-            `Quest "${title}" ${remaining === 0 ? 'COMPLETE' : 'in progress'} | reported=${reported}${remaining ? ` | remaining=${remaining}` : ''} | gainedPoints=${gained}${parent.pointProgressMax > 0 ? `/${parent.pointProgressMax}` : ''}`,
+            `任务 "${title}" ${remaining === 0 ? '已完成' : '进行中'} | 已上报=${reported}${remaining ? ` | 剩余=${remaining}` : ''} | 获得积分=${gained}${parent.pointProgressMax > 0 ? `/${parent.pointProgressMax}` : ''}`,
             gained > 0 ? 'green' : undefined
         )
     }
@@ -310,11 +310,11 @@ export class Workers {
         const offerId = child.offerId
         const actionId = this.bot.nextActions.reportActivity
         if (!actionId) {
-            this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `Skip ${offerId}: "reportActivity" not discovered`)
+            this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `跳过 ${offerId}: 未发现 "reportActivity"`)
             return
         }
         if (!child.hash) {
-            this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `Skip ${offerId}: no live hash on quest child`)
+            this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `跳过 ${offerId}: 任务子项无有效 hash`)
             return
         }
 
@@ -345,14 +345,14 @@ export class Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'PUNCHCARD',
-                `Reported child | offerId=${offerId} | status=${status} | acknowledged=${acknowledged}${gained > 0 ? ` | gainedPoints=${gained}` : ''}`,
+                `已上报子任务 | offerId=${offerId} | 状态=${status} | 已确认=${acknowledged}${gained > 0 ? ` | 获得积分=${gained}` : ''}`,
                 gained > 0 || acknowledged ? 'green' : undefined
             )
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'PUNCHCARD',
-                `Error reporting child | offerId=${offerId} | message=${error instanceof Error ? error.message : String(error)}`
+                `上报子任务出错 | offerId=${offerId} | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -367,7 +367,7 @@ export class Workers {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'ACTIVITY',
-                    `Processing activity | title="${activity.title}" | offerId=${offerId} | type=${type}`
+                    `处理活动 | 标题="${activity.title}" | offerId=${offerId} | 类型=${type}`
                 )
 
                 switch (type) {
@@ -381,7 +381,7 @@ export class Workers {
                             this.bot.logger.info(
                                 this.bot.isMobile,
                                 'ACTIVITY',
-                                `Skipping "SearchOnBing" (disabled in config) | offerId=${offerId}`
+                                `跳过 "SearchOnBing" (已在配置中禁用) | offerId=${offerId}`
                             )
                             continue
                         }
@@ -389,7 +389,7 @@ export class Workers {
                             this.bot.logger.info(
                                 this.bot.isMobile,
                                 'ACTIVITY',
-                                `Skipping "UrlReward" (disabled in config) | offerId=${offerId}`
+                                `跳过 "UrlReward" (已在配置中禁用) | offerId=${offerId}`
                             )
                             continue
                         }
@@ -398,7 +398,7 @@ export class Workers {
                             this.bot.logger.info(
                                 this.bot.isMobile,
                                 'ACTIVITY',
-                                `Found activity type "SearchOnBing" | title="${activity.title}" | offerId=${offerId}`
+                                `发现活动类型 "SearchOnBing" | 标题="${activity.title}" | offerId=${offerId}`
                             )
 
                             const page = this.bot.isMobile ? this.bot.mainMobilePage : this.bot.mainDesktopPage
@@ -407,7 +407,7 @@ export class Workers {
                             this.bot.logger.info(
                                 this.bot.isMobile,
                                 'ACTIVITY',
-                                `Found activity type "UrlReward" | title="${activity.title}" | offerId=${offerId}`
+                                `发现活动类型 "UrlReward" | 标题="${activity.title}" | offerId=${offerId}`
                             )
 
                             await this.bot.activities.doUrlReward(basePromotion)
@@ -419,7 +419,7 @@ export class Workers {
                         this.bot.logger.warn(
                             this.bot.isMobile,
                             'ACTIVITY',
-                            `Skipped activity "${activity.title}" | offerId=${offerId} | Reason: Unsupported type "${activity.promotionType}"`
+                            `跳过活动 "${activity.title}" | offerId=${offerId} | 原因: 不支持的类型 "${activity.promotionType}"`
                         )
                         break
                     }
@@ -430,7 +430,7 @@ export class Workers {
                 this.bot.logger.error(
                     this.bot.isMobile,
                     'ACTIVITY',
-                    `Error while solving activity "${activity.title}" | message=${error instanceof Error ? error.message : String(error)}`
+                    `处理活动时出错 "${activity.title}" | 消息=${error instanceof Error ? error.message : String(error)}`
                 )
             }
         }

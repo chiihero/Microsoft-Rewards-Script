@@ -7,7 +7,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                'Skipping: "reportClaimAllPoints" action id not discovered in bundle'
+                '跳过：未在 bundle 中发现 "reportClaimAllPoints" 的 action id'
             )
             return
         }
@@ -17,7 +17,7 @@ export class ClaimBonusPoints extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'CLAIM-BONUS-POINTS',
-            `Starting ClaimBonusPoints | geo=${this.bot.userData.geoLocale} | oldBalance=${oldBalance}`
+            `开始 ClaimBonusPoints | 地区=${this.bot.userData.geoLocale} | 旧余额=${oldBalance}`
         )
 
         try {
@@ -29,7 +29,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Response | status=${status} | acknowledged=${acknowledged} | oldBalance=${oldBalance} | newBalance=${newBalance} | gainedPoints=${gainedPoints}`
+                `响应 | 状态=${status} | 已确认=${acknowledged} | 旧余额=${oldBalance} | 新余额=${newBalance} | 获得积分=${gainedPoints}`
             )
 
             if (acknowledged) {
@@ -41,14 +41,14 @@ export class ClaimBonusPoints extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'CLAIM-BONUS-POINTS',
-                    `Completed ClaimBonusPoints | acknowledged=true${gainedPoints > 0 ? ` | gainedPoints=${gainedPoints}` : ''} | newBalance=${newBalance}`,
+                    `ClaimBonusPoints 完成 | 已确认=true${gainedPoints > 0 ? ` | 获得积分=${gainedPoints}` : ''} | 新余额=${newBalance}`,
                     'green'
                 )
             } else {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'CLAIM-BONUS-POINTS',
-                    `Nothing claimed | status=${status} | balance unchanged at ${newBalance}`
+                    `未领取到任何内容 | 状态=${status} | 余额未变，仍为 ${newBalance}`
                 )
             }
 
@@ -57,7 +57,7 @@ export class ClaimBonusPoints extends Workers {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'CLAIM-BONUS-POINTS',
-                `Error in claimBonusPoints | message=${error instanceof Error ? error.message : String(error)}`
+                `claimBonusPoints 出错 | 消息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

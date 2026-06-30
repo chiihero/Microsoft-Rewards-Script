@@ -21,7 +21,7 @@ const DelaySchema = z.object({
 })
 
 const QueryEngineSchema = z.union([
-    z.enum(['google', 'wikipedia', 'wikirandom', 'hackernews', 'reddit', 'local']),
+    z.enum(['google', 'wikipedia', 'wikirandom', 'hackernews', 'reddit', 'china', 'local']),
     z
         .string()
         .regex(/^rss(\.[A-Za-z0-9_-]+){0,2}$/, 'Invalid rss selector (use rss, rss.<site>, or rss.<site>.<endpoint>)')
@@ -44,6 +44,15 @@ const WebhookSchema = z.object({
             title: z.string().optional(),
             tags: z.array(z.string()).optional(),
             priority: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional()
+        })
+        .optional(),
+    pushplus: z
+        .object({
+            enabled: z.boolean().optional(),
+            token: z.string(),
+            title: z.string().optional(),
+            template: z.union([z.literal('txt'), z.literal('html'), z.literal('markdown')]).optional(),
+            channel: z.string().optional()
         })
         .optional(),
     webhookLogFilter: LogFilterSchema
@@ -88,7 +97,12 @@ export const ConfigSchema = z.object({
         queryEngines: z.array(QueryEngineSchema),
         searchResultVisitTime: NumberOrString,
         searchDelay: DelaySchema,
-        readDelay: DelaySchema
+        readDelay: DelaySchema,
+        chinaApi: z
+            .object({
+                appkey: z.string().optional()
+            })
+            .optional()
     }),
     experimental: z
         .object({

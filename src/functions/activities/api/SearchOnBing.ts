@@ -25,7 +25,7 @@ export class SearchOnBing extends Workers {
         this.bot.logger.info(
             this.bot.isMobile,
             'SEARCH-ON-BING',
-            `Starting SearchOnBing | offerId=${offerId} | title="${promotion.title}" | currentPoints=${this.oldBalance}`
+            `开始 Bing 站内搜索 | offerId=${offerId} | 标题="${promotion.title}" | 当前积分=${this.oldBalance}`
         )
 
         try {
@@ -33,7 +33,7 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'SEARCH-ON-BING',
-                    `Search activity couldn't be activated, aborting | offerId=${offerId}`
+                    `搜索活动无法激活，中止 | offerId=${offerId}`
                 )
                 return
             }
@@ -45,21 +45,21 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'SEARCH-ON-BING',
-                    `Completed SearchOnBing | offerId=${offerId} | startBalance=${this.oldBalance} | finalBalance=${this.bot.userData.currentPoints}`,
+                    `Bing 站内搜索完成 | offerId=${offerId} | 起始余额=${this.oldBalance} | 最终余额=${this.bot.userData.currentPoints}`,
                     'green'
                 )
             } else {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'SEARCH-ON-BING',
-                    `Failed SearchOnBing | offerId=${offerId} | startBalance=${this.oldBalance} | finalBalance=${this.bot.userData.currentPoints}`
+                    `Bing 站内搜索失败 | offerId=${offerId} | 起始余额=${this.oldBalance} | 最终余额=${this.bot.userData.currentPoints}`
                 )
             }
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'SEARCH-ON-BING',
-                `Error in doSearchOnBing | offerId=${offerId} | message=${error instanceof Error ? error.message : String(error)}`
+                `doSearchOnBing 出错 | offerId=${offerId} | 错误信息=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -72,7 +72,7 @@ export class SearchOnBing extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-ACTIVATE',
-                `Skipping ${offerId}: "reportActivity" not discovered in bundle`
+                `跳过 ${offerId}: 在 bundle 中未发现 "reportActivity"`
             )
             return false
         }
@@ -83,7 +83,7 @@ export class SearchOnBing extends Workers {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-ACTIVATE',
-                `Skipping ${offerId}: no live hash for the activation offer`
+                `跳过 ${offerId}: 激活活动没有实时 hash`
             )
             return false
         }
@@ -97,14 +97,14 @@ export class SearchOnBing extends Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-ACTIVATE',
-                `Activated activity | offerId=${offerId} | status=${status} | acknowledged=${acknowledged}`
+                `活动已激活 | offerId=${offerId} | 状态=${status} | 已确认=${acknowledged}`
             )
             return acknowledged
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-ACTIVATE',
-                `Activation failed | offerId=${offerId} | message=${error instanceof Error ? error.message : String(error)}`
+                `激活失败 | offerId=${offerId} | 错误信息=${error instanceof Error ? error.message : String(error)}`
             )
             return false
         }
@@ -116,12 +116,12 @@ export class SearchOnBing extends Workers {
 
         const cgDashboard = (await this.bot.browser.func.getDashboardData()).dashboard
         const cg = this.buildCategoryGroup(cgDashboard, offerId)
-        this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-SEARCH', `Category group | cg=${cg || '(none)'}`)
+        this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-SEARCH', `分类组 | cg=${cg || '(无)'}`)
 
         this.bot.logger.debug(
             this.bot.isMobile,
             'SEARCH-ON-BING-SEARCH',
-            `Starting search loop | queriesCount=${queries.length} | targetPoints=${promotion.pointProgressMax} | oldBalance=${this.oldBalance}`
+            `开始搜索循环 | 查询词数量=${queries.length} | 目标积分=${promotion.pointProgressMax} | 原始余额=${this.oldBalance}`
         )
 
         let lastBalance = this.oldBalance
@@ -129,14 +129,14 @@ export class SearchOnBing extends Workers {
 
         for (const query of queries) {
             try {
-                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-SEARCH', `Processing query | query="${query}"`)
+                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-SEARCH', `处理查询词 | query="${query}"`)
 
                 const { ig } = await this.bot.browser.func.reportSearchActivity(query, cg ? { cg } : undefined)
                 if (!ig) {
                     this.bot.logger.warn(
                         this.bot.isMobile,
                         'SEARCH-ON-BING-SEARCH',
-                        `No IG returned for query="${query}" - skipping this query`
+                        `查询词="${query}" 未返回 IG - 跳过该查询词`
                     )
                     continue
                 }
@@ -163,7 +163,7 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'SEARCH-ON-BING-SEARCH',
-                    `Progress check | query="${query}" | offerProgress=${offerProgress} | offerComplete=${offerComplete} | newBalance=${newBalance}`
+                    `进度检查 | query="${query}" | 活动进度=${offerProgress} | 活动是否完成=${offerComplete} | 新余额=${newBalance}`
                 )
 
                 if (offerComplete) {
@@ -171,7 +171,7 @@ export class SearchOnBing extends Workers {
                     this.bot.logger.info(
                         this.bot.isMobile,
                         'SEARCH-ON-BING-SEARCH',
-                        `SearchOnBing activity completed | query="${query}" | offerProgress=${offerProgress} | balanceGained=${this.gainedPoints}`,
+                        `Bing 站内搜索活动完成 | query="${query}" | 活动进度=${offerProgress} | 获得积分=${this.gainedPoints}`,
                         'green'
                     )
                     return
@@ -180,13 +180,13 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.warn(
                     this.bot.isMobile,
                     'SEARCH-ON-BING-SEARCH',
-                    `${++i}/${queries.length} | activity not complete | offerProgress=${offerProgress} | query="${query}"`
+                    `${++i}/${queries.length} | 活动未完成 | 活动进度=${offerProgress} | query="${query}"`
                 )
             } catch (error) {
                 this.bot.logger.error(
                     this.bot.isMobile,
                     'SEARCH-ON-BING-SEARCH',
-                    `Error during search loop | query="${query}" | message=${error instanceof Error ? error.message : String(error)}`
+                    `搜索循环出错 | query="${query}" | 错误信息=${error instanceof Error ? error.message : String(error)}`
                 )
             } finally {
                 await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 15000))
@@ -196,7 +196,7 @@ export class SearchOnBing extends Workers {
         this.bot.logger.warn(
             this.bot.isMobile,
             'SEARCH-ON-BING-SEARCH',
-            `Finished all queries without completing the activity | queriesTried=${queries.length} | offerId=${offerId} | oldBalance=${this.oldBalance} | finalBalance=${this.bot.userData.currentPoints}`
+            `已尝试所有查询词但活动未完成 | 已尝试查询词数=${queries.length} | offerId=${offerId} | 原始余额=${this.oldBalance} | 最终余额=${this.bot.userData.currentPoints}`
         )
     }
 
@@ -235,7 +235,7 @@ export class SearchOnBing extends Workers {
         try {
             let activities: ActivityQueries[]
             if (this.bot.config.searchOnBingLocalQueries) {
-                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-QUERY', 'Using local queries config file')
+                this.bot.logger.debug(this.bot.isMobile, 'SEARCH-ON-BING-QUERY', '使用本地查询词配置文件')
                 activities = JSON.parse(
                     fs.readFileSync(path.join(__dirname, '../../bing-search-activity-queries.json'), 'utf8')
                 )
@@ -243,7 +243,7 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'SEARCH-ON-BING-QUERY',
-                    'Fetching queries config from remote repository'
+                    '从远程仓库获取查询词配置'
                 )
                 activities = (
                     await this.bot.http.request<ActivityQueries[]>({
@@ -261,7 +261,7 @@ export class SearchOnBing extends Workers {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'SEARCH-ON-BING-QUERY',
-                    `Found ${shuffled.length} queries for "${promotion.title}" | source=${this.bot.config.searchOnBingLocalQueries ? 'local' : 'remote'}`
+                    `已为 "${promotion.title}" 找到 ${shuffled.length} 个查询词 | 来源=${this.bot.config.searchOnBingLocalQueries ? '本地' : '远程'}`
                 )
                 return shuffled
             }
@@ -269,14 +269,14 @@ export class SearchOnBing extends Workers {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-QUERY',
-                `No curated queries for "${promotion.title}", falling back to the activity title and description`
+                `"${promotion.title}" 没有精选查询词，回退到活动标题和描述`
             )
             return this.fallbackQueries(promotion)
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
                 'SEARCH-ON-BING-QUERY',
-                `Error resolving search queries | title="${promotion.title}" | message=${error instanceof Error ? error.message : String(error)} | fallback=titleAndDescription`
+                `解析搜索查询词出错 | 标题="${promotion.title}" | 错误信息=${error instanceof Error ? error.message : String(error)} | 回退=标题与描述`
             )
             return this.fallbackQueries(promotion)
         }

@@ -10,7 +10,7 @@ export class Search extends Workers {
         const startBalance = Number(this.bot.userData.currentPoints ?? 0)
         let totalGained = 0
 
-        this.bot.logger.info(isMobile, 'SEARCH-BING', `Starting Bing searches | currentPoints=${startBalance}`)
+        this.bot.logger.info(isMobile, 'SEARCH-BING', `开始 Bing 搜索 | 当前积分=${startBalance}`)
 
         try {
             const missing = this.bot.browser.func.missingSearchPoints(
@@ -20,16 +20,16 @@ export class Search extends Workers {
             this.bot.logger.info(
                 isMobile,
                 'SEARCH-BING',
-                `Search points remaining | edge=${missing.edgePoints} | desktop=${missing.desktopPoints} | mobile=${missing.mobilePoints}`
+                `剩余搜索积分 | Edge=${missing.edgePoints} | 桌面端=${missing.desktopPoints} | 移动端=${missing.mobilePoints}`
             )
             if (missing.totalPoints <= 0) {
-                this.bot.logger.info(isMobile, 'SEARCH-BING', 'No search points to earn, skipping')
+                this.bot.logger.info(isMobile, 'SEARCH-BING', '没有可获得的搜索积分，跳过')
                 return 0
             }
 
             const queryCore = new QueryCore(this.bot)
             let queries = await this.generatePool(queryCore)
-            this.bot.logger.info(isMobile, 'SEARCH-BING', `Query pool ready | count=${queries.length}`)
+            this.bot.logger.info(isMobile, 'SEARCH-BING', `查询词池就绪 | 数量=${queries.length}`)
 
             let stagnant = 0
             let index = 0
@@ -41,7 +41,7 @@ export class Search extends Workers {
                     const extra = await this.generatePool(queryCore)
                     queries = this.bot.utils.shuffleArray([...new Set([...queries, ...extra])])
                     if (index >= queries.length) {
-                        this.bot.logger.warn(isMobile, 'SEARCH-BING', 'Query pool exhausted, stopping')
+                        this.bot.logger.warn(isMobile, 'SEARCH-BING', '查询词池已耗尽，停止')
                         break
                     }
                 }
@@ -51,7 +51,7 @@ export class Search extends Workers {
                 performed++
 
                 if (!res.ig) {
-                    this.bot.logger.warn(isMobile, 'SEARCH-BING', `No IG for query="${query}" - skipping`)
+                    this.bot.logger.warn(isMobile, 'SEARCH-BING', `查询词="${query}" 没有 IG - 跳过`)
                     continue
                 }
 
@@ -76,7 +76,7 @@ export class Search extends Workers {
                     this.bot.logger.info(
                         isMobile,
                         'SEARCH-BING',
-                        `gainedPoints=${gained} | query="${query}" | balance=${res.balance} | searchPts=${cap}`,
+                        `获得积分=${gained} | query="${query}" | 余额=${res.balance} | 搜索积分=${cap}`,
                         'green'
                     )
                 } else {
@@ -84,7 +84,7 @@ export class Search extends Workers {
                     this.bot.logger.info(
                         isMobile,
                         'SEARCH-BING',
-                        `No points gained ${stagnant}/${STAGNANT_LIMIT} | query="${query}" | searchPts=${cap}`
+                        `未获得积分 ${stagnant}/${STAGNANT_LIMIT} | query="${query}" | 搜索积分=${cap}`
                     )
                 }
 
@@ -92,7 +92,7 @@ export class Search extends Workers {
                     this.bot.logger.info(
                         isMobile,
                         'SEARCH-BING',
-                        `Search point cap reached (${cap}), stopping`,
+                        `搜索积分已达上限 (${cap})，停止`,
                         'green'
                     )
                     break
@@ -102,7 +102,7 @@ export class Search extends Workers {
                     this.bot.logger.warn(
                         isMobile,
                         'SEARCH-BING',
-                        `No points for ${STAGNANT_LIMIT} searches in a row, aborting`
+                        `连续 ${STAGNANT_LIMIT} 次搜索未获得积分，中止`
                     )
                     break
                 }
@@ -118,14 +118,14 @@ export class Search extends Workers {
             this.bot.logger.info(
                 isMobile,
                 'SEARCH-BING',
-                `Completed Bing searches | startBalance=${startBalance} | gained=${totalGained} | searches=${performed}`
+                `Bing 搜索完成 | 起始余额=${startBalance} | 获得=${totalGained} | 搜索次数=${performed}`
             )
             return totalGained
         } catch (error) {
             this.bot.logger.error(
                 isMobile,
                 'SEARCH-BING',
-                `Error in doSearch | ${error instanceof Error ? error.message : String(error)}`
+                `doSearch 出错 | ${error instanceof Error ? error.message : String(error)}`
             )
             return totalGained
         }
@@ -146,10 +146,10 @@ export class Search extends Workers {
             const queryCore = new QueryCore(this.bot)
             let queries = await this.generatePool(queryCore)
             if (!queries.length) {
-                this.bot.logger.warn(isMobile, tracker.context, 'No queries available, skipping')
+                this.bot.logger.warn(isMobile, tracker.context, '没有可用的查询词，跳过')
                 return 0
             }
-            this.bot.logger.info(isMobile, tracker.context, `Query pool ready | count=${queries.length}`)
+            this.bot.logger.info(isMobile, tracker.context, `查询词池就绪 | 数量=${queries.length}`)
 
             let index = 0
 
@@ -158,7 +158,7 @@ export class Search extends Workers {
                     const extra = await this.generatePool(queryCore)
                     queries = this.bot.utils.shuffleArray([...new Set([...queries, ...extra])])
                     if (index >= queries.length) {
-                        this.bot.logger.warn(isMobile, tracker.context, 'Query pool exhausted, stopping')
+                        this.bot.logger.warn(isMobile, tracker.context, '查询词池已耗尽，停止')
                         break
                     }
                 }
@@ -168,7 +168,7 @@ export class Search extends Workers {
                 performed++
 
                 if (!res.ig) {
-                    this.bot.logger.warn(isMobile, tracker.context, `No IG for query="${query}" - skipping`)
+                    this.bot.logger.warn(isMobile, tracker.context, `查询词="${query}" 没有 IG - 跳过`)
                     continue
                 }
 
@@ -187,7 +187,7 @@ export class Search extends Workers {
                     this.bot.logger.info(
                         isMobile,
                         tracker.context,
-                        `no points ${stagnant}/${tracker.stagnantLimit} | query="${query}" | ${tracker.progress()}`
+                        `未获得积分 ${stagnant}/${tracker.stagnantLimit} | query="${query}" | ${tracker.progress()}`
                     )
                 }
 
@@ -202,7 +202,7 @@ export class Search extends Workers {
             this.bot.logger.error(
                 isMobile,
                 tracker.context,
-                `Bonus session error | ${error instanceof Error ? error.message : String(error)}`
+                `奖励会话出错 | ${error instanceof Error ? error.message : String(error)}`
             )
         }
 
@@ -220,7 +220,7 @@ export class Search extends Workers {
         this.bot.logger.info(
             isMobile,
             tracker.context,
-            `Bonus farming ${done ? 'complete' : 'stopped'} (${reason}) | ${tracker.progress()} | searches=${performed} | gained=+${totalGained}`,
+            `奖励刷取${done ? '完成' : '已停止'} (${reason}) | ${tracker.progress()} | 搜索次数=${performed} | 获得=+${totalGained}`,
             done || totalGained > 0 ? 'green' : undefined
         )
         return totalGained
