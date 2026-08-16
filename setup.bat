@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+chcp 65001 >nul
 
 echo ===================================
 echo 微软奖励脚本环境自动安装程序
@@ -59,23 +60,6 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 
-:: 安装项目依赖
-echo 正在安装项目依赖...
-call npm install
-if %ERRORLEVEL% neq 0 (
-    echo 安装依赖失败，请检查网络连接或手动安装。
-    pause
-    exit /b 1
-)
-
-:: 安装Playwright
-echo 正在安装Playwright...
-call npx patchright install chromium
-if %ERRORLEVEL% neq 0 (
-    echo 安装Playwright失败，请检查网络连接或手动安装。
-    pause
-    exit /b 1
-)
 
 :: 检查并准备账户配置文件
 if not exist "src\accounts.json" (
@@ -88,6 +72,19 @@ if not exist "src\accounts.json" (
     )
 ) else (
     echo accounts.json文件已存在。
+)
+
+:: 检查并准备全局配置文件
+if not exist "src\config.json" (
+    if exist "src\config.example.json" (
+        echo 正在创建全局配置文件...
+        copy "src\config.example.json" "src\config.json"
+        echo 已创建config.json文件，请按需修改该配置文件。
+    ) else (
+        echo 警告：未找到config.example.json文件，请手动创建config.json文件。
+    )
+) else (
+    echo config.json文件已存在。
 )
 :: 预构建项目
 echo 正在预构建项目...
@@ -107,11 +104,16 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-:: 检查配置文件
-if exist "dist\config.json" (
-    echo config.json文件已存在，请确保已按照您的喜好进行了配置。
+:: 检查构建产物
+if exist "dist\accounts.json" (
+    echo 已生成dist\accounts.json，请编辑此文件添加您的账户信息。
 ) else (
-    echo 警告：未找到config.json文件，请确保该文件存在并已正确配置。
+    echo 警告：未生成dist\accounts.json文件，请检查构建是否成功。
+)
+if exist "dist\config.json" (
+    echo 已生成dist\config.json，请按需修改该配置文件。
+) else (
+    echo 警告：未生成dist\config.json文件，请检查构建是否成功。
 )
 
 echo.
