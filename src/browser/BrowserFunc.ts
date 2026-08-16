@@ -20,14 +20,14 @@ export default class BrowserFunc {
      * 下面是通过网络请求记录得到的当前部署版本的 hash 表；部署更新后 hash 会失效，由调用方做版本守卫。
      */
     // hash 抓录时的部署版本 ID（仅作日志对照参考；版本不匹配不再拦截调用，见 callServerAction）
-    public static readonly SUPPORTED_DEPLOYMENT_ID = '20260624-3'
+    public static readonly SUPPORTED_DEPLOYMENT_ID = '20260812-6'
 
     // Server Action hash 表（在 SUPPORTED_DEPLOYMENT_ID 下记录得到）
     public static readonly SERVER_ACTION_HASHES = {
-        // 连击保护 toggle：body=[true] 开启 / [false] 关闭
-        toggleStreakProtection: '40eddd39784c87de1e9c077e72117f3ed9a016a2d2',
-        // 领取积分：body=[]
-        claimBonusPoints: '00cf5ba7699f0e920ffcff223f9e48fea78fd49784'
+        // 连击保护 toggle：body=[true] 开启 / [false] 关闭（服务端函数现为 reportToggleStreakProtection）
+        toggleStreakProtection: '404e9e545cf6737679e14e04b90a9f789ff8dbae38',
+        // 领取积分：body=[]（服务端函数现为 reportClaimAllPoints）
+        claimBonusPoints: '00491296f1d668ad46b65342c95cb9d72a62c1fa9d'
     } as const
 
     constructor(bot: MicrosoftRewardsBot) {
