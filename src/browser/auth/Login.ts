@@ -603,7 +603,9 @@ export class Login {
                 }
 
                 const u = new URL(page.url())
-                const atBingHome = u.hostname === 'cn.bing.com' && u.pathname === '/'
+                const atBingHome =
+                    (u.hostname === 'cn.bing.com' || u.hostname === 'www.bing.com') &&
+                    u.pathname === '/'
                 this.bot.logger.debug(
                     this.bot.isMobile,
                     'LOGIN-BING',
