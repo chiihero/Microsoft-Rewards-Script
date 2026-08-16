@@ -241,7 +241,7 @@ export class Login {
             if (url.hostname !== 'login.live.com') {
                 foundStates = foundStates.filter(s => s !== 'ERROR_ALERT')
             }
-            if (foundStates.includes('2FA_TOTP')) {
+            if (foundStates.includes('2FA_TOTP') || foundStates.includes('LOGIN_PASSWORDLESS')) {
                 foundStates = foundStates.filter(s => s !== 'ERROR_ALERT')
             }
             if (foundStates.includes('ERROR_ALERT')) return 'ERROR_ALERT'
@@ -381,9 +381,7 @@ export class Login {
                 await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
                     this.bot.logger.debug(this.bot.isMobile, 'LOGIN', '主按钮点击后网络空闲超时')
                 })
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '启动代码登录处理器')
-                await this.codeLogin.handle(page)
-                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '代码登录处理器完成')
+                // 点击后交还状态机: Authenticator推送页由 LOGIN_PASSWORDLESS 等待手机批准
                 return true
             }
 
