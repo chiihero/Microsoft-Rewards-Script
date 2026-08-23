@@ -96,7 +96,8 @@ export default class BrowserUtils {
 
             const newTab = pages[pages.length - 1]
             if (!newTab) {
-                throw this.bot.logger.error(this.bot.isMobile, 'GET-NEW-TAB', '找不到任何标签页！')
+                this.bot.logger.error(this.bot.isMobile, 'GET-NEW-TAB', '找不到任何标签页！')
+                throw new Error('找不到任何标签页！')
             }
 
             return newTab
@@ -213,14 +214,27 @@ export default class BrowserUtils {
                 `尝试点击选择器: ${selector}，选项: ${JSON.stringify(options)}`
             )
 
-            // Wait for selector to exist before clicking
-            await page.waitForSelector(selector, { timeout: 1000 }).catch(() => {})
+            // Wait for selector to be visible before clicking
+            await page.waitForSelector(selector, { state: 'visible', timeout: 2000 }).catch(() => {})
 
             // ghost-cursor expects its own Playwright Page type from a different
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const cursor = createCursor(page as any)
             await cursor.click(selector, options)
 
+            return true
+        } catch (error) {
+            this.bot.logger.warn(
+                this.bot.isMobile,
+                'GHOST-CLICK',
+                `ghost-cursor点击失败，尝试原生点击: ${error instanceof Error ? error.message : String(error)}`
+            )
+        }
+
+        // Fallback: use native Playwright click
+        try {
+            await page.locator(selector).first().click({ timeout: 2000 })
+            this.bot.logger.debug(this.bot.isMobile, 'GHOST-CLICK', `原生点击成功: ${selector}`)
             return true
         } catch (error) {
             this.bot.logger.warn(
