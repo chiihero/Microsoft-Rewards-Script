@@ -1,5 +1,6 @@
 dist/
 .dev/
+.idea
 node_modules/
 /config.json
 # ClawBot 微信推送的扫码凭证（含 bot token），严禁提交
