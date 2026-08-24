@@ -20,3 +20,6 @@ note
 # 本地私密配置与编辑器工作目录，严禁提交
 /.env
 /.zcode/
+# 浏览器会话数据库（含 Cookie/账号信息），严禁提交
+/sessions/
+/src/sessions/

@@ -209,8 +209,22 @@ export default class BrowserFunc {
 
     async bootstrap(page: Page): Promise<void> {
         try {
-            // /earn is the offers page
-            await page.goto(URLs.rewards.earn, { waitUntil: 'domcontentloaded' })
+            // /earn is the offers page（代理连接不稳定时重试 3 次）
+            let gotoOk = false
+            for (let i = 1; i <= 3 && !gotoOk; i++) {
+                try {
+                    await page.goto(URLs.rewards.earn, { waitUntil: 'domcontentloaded', timeout: 30000 })
+                    gotoOk = true
+                } catch (e) {
+                    if (i === 3) throw e
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'BOOTSTRAP',
+                        `访问 /earn 失败(尝试 ${i}/3): ${e instanceof Error ? e.message : String(e)}，重试中...`
+                    )
+                    await this.bot.utils.wait(2000)
+                }
+            }
 
             const earnDom = await page.content()
             const earnRaw = await this.fetchBootstrapHtml(page, URLs.rewards.earn, '/earn')

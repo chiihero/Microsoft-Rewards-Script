@@ -422,18 +422,6 @@ export class Login {
         })
     }
 
-    private async tryClick(page: Page, selector: string, label: string, timeout = 2000): Promise<boolean> {
-        const found = await page.waitForSelector(selector, { state: 'visible', timeout }).catch(() => null)
-        if (!found) return false
-
-        const clicked = await this.bot.browser.utils.ghostClick(page, selector)
-        if (!clicked) return false
-
-        await this.waitForIdle(page, `after ${label}`)
-        this.bot.logger.info(this.bot.isMobile, 'LOGIN', `${label} 已点击`)
-        return true
-    }
-
     private async handleState(state: LoginState, page: Page, account: Account): Promise<boolean> {
         this.bot.logger.debug(this.bot.isMobile, 'HANDLE-STATE', `处理状态: ${state}`)
 
@@ -725,14 +713,12 @@ export class Login {
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'LOGIN',
-                    '检测到OTP代码输入页面；返回登录方式选择'
+                    '检测到OTP代码输入页面；启动代码登录处理器'
                 )
 
-                if (!(await this.tryClick(page, this.selectors.backButton, 'Back button'))) {
-                    this.bot.logger.warn(this.bot.isMobile, 'LOGIN', 'OTP页面上未找到返回按钮')
-                    return false
-                }
-
+                await this.waitForIdle(page, 'on OTP code entry page')
+                await this.codeLogin.handle(page)
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '代码登录处理器完成')
                 return true
             }
 

@@ -9,8 +9,9 @@ export class CodeLogin {
         'input#proof-confirmation-email-input',
         '[data-testid="proof-confirmation"]'
     ] as const
-    private readonly maxManualSeconds = 60
-    private readonly maxManualAttempts = 5
+    private readonly maxEmailSeconds = 60
+    private readonly maxCodeSeconds = 300
+    private readonly maxManualAttempts = 3
 
     constructor(private bot: MicrosoftRewardsBot) {}
 
@@ -131,9 +132,9 @@ export class CodeLogin {
                 for (let attempt = 1; attempt <= this.maxManualAttempts; attempt++) {
                     const email = await promptInput({
                         question: maskedHint
-                            ? `Enter the full email address for "${maskedHint}" to send the code to (waiting ${this.maxManualSeconds}s): `
-                            : `Enter the email address to send the code to (waiting ${this.maxManualSeconds}s): `,
-                        timeoutSeconds: this.maxManualSeconds,
+                            ? `Enter the full email address for "${maskedHint}" to send the code to (waiting ${this.maxEmailSeconds}s): `
+                            : `Enter the email address to send the code to (waiting ${this.maxEmailSeconds}s): `,
+                        timeoutSeconds: this.maxEmailSeconds,
                         validate: value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
                     })
 
@@ -202,8 +203,8 @@ export class CodeLogin {
 
             for (let attempt = 1; attempt <= this.maxManualAttempts; attempt++) {
                 const code = await promptInput({
-                    question: `Enter the 6-digit code (waiting ${this.maxManualSeconds}s): `,
-                    timeoutSeconds: this.maxManualSeconds,
+                    question: `Enter the 6-digit code (waiting ${this.maxCodeSeconds}s): `,
+                    timeoutSeconds: this.maxCodeSeconds,
                     validate: code => /^\d{6}$/.test(code)
                 })
 
