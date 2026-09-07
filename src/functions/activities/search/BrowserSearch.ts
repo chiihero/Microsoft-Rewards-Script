@@ -5,6 +5,7 @@ import { SearchQueryQueue } from '../../SearchQueryQueue'
 import { BaseActivity } from '../BaseActivity'
 import { BonusTracker } from './BonusTracker'
 import { SearchProgress } from './SearchProgress'
+import { getSearchTargetRatio } from '../../../util/Humanize'
 import type { SearchTracker } from '../../../interface/Search'
 import type { MissingSearchPoints } from '../../../interface/Points'
 import type { MicrosoftRewardsBot } from '../../../index'
@@ -247,6 +248,7 @@ class PointsTracker implements SearchTracker {
     private missing: MissingSearchPoints = { mobilePoints: 0, desktopPoints: 0, edgePoints: 0, totalPoints: 0 }
     private readonly runOnZeroPoints: boolean
     private readonly searchProgress: SearchProgress
+    private reservedPoints = 0
 
     constructor(
         private bot: MicrosoftRewardsBot,
@@ -263,6 +265,19 @@ class PointsTracker implements SearchTracker {
             this.context,
             `剩余搜索积分 | Edge=${this.missing.edgePoints} | 桌面端=${this.missing.desktopPoints} | 移动端=${this.missing.mobilePoints}`
         )
+
+        const ratio = getSearchTargetRatio()
+        if (ratio < 1 && this.missing.totalPoints > 0) {
+            // 单次搜索计 3 分，保留分取整到 3 的倍数，避免出现"差 1~2 分"的精确残留
+            this.reservedPoints = Math.floor((this.missing.totalPoints * (1 - ratio)) / 3) * 3
+            if (this.reservedPoints > 0) {
+                this.bot.logger.info(
+                    this.isMobile,
+                    this.context,
+                    `拟人化：搜索目标随机打折 | 比例=${ratio.toFixed(2)} | 当前剩余=${this.missing.totalPoints} | 计划保留=${this.reservedPoints} 分不拿（humanize.searchTargetRatio）`
+                )
+            }
+        }
 
         if (this.missing.totalPoints <= 0) {
             if (!this.runOnZeroPoints) {
@@ -295,7 +310,7 @@ class PointsTracker implements SearchTracker {
     }
 
     done(): boolean {
-        return !this.runOnZeroPoints && this.missing.totalPoints <= 0
+        return !this.runOnZeroPoints && this.missing.totalPoints <= this.reservedPoints
     }
 
     progress(): string {

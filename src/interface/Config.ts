@@ -18,6 +18,26 @@ export interface Config {
     proxy: ConfigProxy
     consoleLogFilter: LogFilter
     webhook: ConfigWebhook
+    humanize?: HumanizeConfig
+}
+
+export interface HumanizeConfig {
+    enabled?: boolean
+    skipWhenCompletedToday?: boolean
+    quietHours?: QuietHoursRule[]
+    searchTargetRatio?: HumanizeRange
+    readToEarnArticles?: HumanizeRange
+}
+
+export interface HumanizeRange {
+    min: number
+    max: number
+}
+
+export interface QuietHoursRule {
+    days: string[]
+    start: string
+    end: string
 }
 
 export type QueryEngine = 'china' | 'google' | 'wikipedia' | 'wikirandom' | 'hackernews' | 'reddit' | 'local'

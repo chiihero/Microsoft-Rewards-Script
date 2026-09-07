@@ -92,6 +92,14 @@ export const ENV_OVERRIDES: EnvOverrideEntry[] = [
     { env: 'CONFIG_SERVERCHAN_SENDKEY', path: 'webhook.serverchan.sendKey', type: 'string' },
     { env: 'CONFIG_SERVERCHAN_TITLE', path: 'webhook.serverchan.title', type: 'string' },
 
+    // Humanize 拟人化运行策略（quietHours 为数组结构，请直接编辑 config.json）
+    { env: 'CONFIG_HUMANIZE_ENABLED', path: 'humanize.enabled', type: 'bool' },
+    { env: 'CONFIG_HUMANIZE_SKIP_WHEN_COMPLETED', path: 'humanize.skipWhenCompletedToday', type: 'bool' },
+    { env: 'CONFIG_HUMANIZE_SEARCH_TARGET_RATIO_MIN', path: 'humanize.searchTargetRatio.min', type: 'number' },
+    { env: 'CONFIG_HUMANIZE_SEARCH_TARGET_RATIO_MAX', path: 'humanize.searchTargetRatio.max', type: 'number' },
+    { env: 'CONFIG_HUMANIZE_READ_TO_EARN_MIN', path: 'humanize.readToEarnArticles.min', type: 'number' },
+    { env: 'CONFIG_HUMANIZE_READ_TO_EARN_MAX', path: 'humanize.readToEarnArticles.max', type: 'number' },
+
     // ClawBot webhook（微信 ClawBot 直连推送，凭证由扫码生成）
     { env: 'CONFIG_CLAWBOT_ENABLED', path: 'webhook.clawbot.enabled', type: 'bool' },
     { env: 'CONFIG_CLAWBOT_AUTHFILE', path: 'webhook.clawbot.authFile', type: 'string' },

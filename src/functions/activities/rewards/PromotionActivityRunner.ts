@@ -7,7 +7,7 @@ export class PromotionActivityRunner extends BaseActivity {
             try {
                 await this.runPromotion(promotion)
                 if (index < promotions.length - 1) {
-                    await this.bot.utils.wait(this.bot.utils.randomDelay(5000, 15000))
+                    await this.bot.utils.wait(this.bot.utils.randomDelay(15000, 60000))
                 }
             } catch (error) {
                 this.bot.logger.error(

@@ -115,5 +115,18 @@
             "keywords": ["starting account", "select number", "collected", "Fraud_UserWarning_BotScore_UX"],
             "regexPatterns": []
         }
+    },
+    "humanize": {
+        "enabled": false,
+        "skipWhenCompletedToday": false,
+        "quietHours": [
+            {
+                "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+                "start": "12:00",
+                "end": "14:30"
+            }
+        ],
+        "searchTargetRatio": { "min": 0.85, "max": 1.0 },
+        "readToEarnArticles": { "min": 7, "max": 10 }
     }
 }

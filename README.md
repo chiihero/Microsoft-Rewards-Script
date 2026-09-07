@@ -413,6 +413,33 @@ docker compose restart          # 重启（不重建）
 </details>
 
 <details>
+<summary><b>🧬 Humanize / 拟人化运行策略（V4-china 特有，默认关闭）</b></summary>
+
+降低风控特征的运行策略集合。`humanize.enabled=false`（默认）时以下全部不生效，行为与原版一致。
+
+| 设置                                         | 描述                                                                 | 默认值            | Docker 环境变量                                       |
+| -------------------------------------------- | -------------------------------------------------------------------- | ----------------- | ----------------------------------------------------- |
+| `humanize.enabled`                           | 总开关                                                               | `false`           | `CONFIG_HUMANIZE_ENABLED`                             |
+| `humanize.skipWhenCompletedToday`            | 当天已成功运行过（`logs/last-success.txt`）则再次启动时直接退出，配合早晚两次定时实现"兜底轮自动跳过" | `false` | `CONFIG_HUMANIZE_SKIP_WHEN_COMPLETED`                 |
+| `humanize.quietHours`                        | 静默时段数组；运行中进入时段自动挂起到结束，启动时落在时段内也等待后再跑。支持 `start > end` 跨午夜 | `[]`    | 仅 config.json                                        |
+| `humanize.searchTargetRatio.min` / `.max`    | 每轮搜索目标完成度随机区间（移动/桌面各自抽取），保留分向下取整到 3 的倍数 | `0.85` - `1.0` | `CONFIG_HUMANIZE_SEARCH_TARGET_RATIO_MIN` / `_MAX`    |
+| `humanize.readToEarnArticles.min` / `.max`   | Read-to-Earn 每轮随机阅读篇数上限区间                                 | `7` - `10`        | `CONFIG_HUMANIZE_READ_TO_EARN_MIN` / `_MAX`           |
+
+`quietHours` 规则示例（days 支持全名或缩写，未列出的天不静默）：
+
+```json
+"quietHours": [
+    { "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "12:00", "end": "14:30" },
+    { "days": ["saturday"], "start": "12:00", "end": "19:00" }
+]
+```
+
+> 💡 想手动强制重跑当天已成功的任务：临时把 `skipWhenCompletedToday` 改为 `false`（或删除 `logs/last-success.txt`）。
+> 拟人化参数不分轮次：无论第几次运行都用同一套随机规则，作用于"当时的剩余额度"。
+
+</details>
+
+<details>
 <summary><b>🌍 Proxy / 代理</b></summary>
 
 | 设置                            | 描述                                | 默认值  | Docker 环境变量                          |

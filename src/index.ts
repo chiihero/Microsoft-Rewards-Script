@@ -18,6 +18,7 @@ import { closeSessionStore, loadResolvedRegion, saveResolvedRegion } from './uti
 import { checkNodeVersion } from './util/Validator'
 import { normalizeCountry, resolveAccountLocale } from './util/Locale'
 import type { AccountLocale } from './util/Locale'
+import { configureHumanize, shouldSkipRunToday, waitForQuietHours, markRunSucceeded } from './util/Humanize'
 
 import { Login } from './browser/auth/Login'
 import Activities from './functions/Activities'
@@ -276,11 +277,26 @@ export class MicrosoftRewardsBot {
         const totalAccounts = this.accounts.length
         const runStartTime = Date.now()
 
+        configureHumanize(this)
+
         this.logger.info(
             'main',
             'RUN-START',
             `启动微软奖励脚本 | v${pkg.version} | 账户数: ${totalAccounts} | 集群数: ${this.config.clusters}`
         )
+
+        if (this.config.clusters <= 1 || cluster.isPrimary) {
+            if (shouldSkipRunToday()) {
+                this.logger.info(
+                    'main',
+                    'RUN-SKIP',
+                    '今天已成功完成过一次运行，按 humanize.skipWhenCompletedToday 跳过本次运行'
+                )
+                process.exit(0)
+            }
+
+            await waitForQuietHours()
+        }
 
         // 主进程启动时检查 ClawBot 凭证：缺失则弹出扫码登录（worker 不重复触发）
         if (cluster.isPrimary) {
@@ -378,6 +394,7 @@ export class MicrosoftRewardsBot {
                 await this.sendClawBotSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await flushAllWebhooks()
 
+                if (!hadWorkerFailure) markRunSucceeded()
                 process.exit(hadWorkerFailure ? 1 : 0)
             }
         }
@@ -630,10 +647,18 @@ export class MicrosoftRewardsBot {
             await this.sendServerChanSummary(accountStats, runStartTime, hadFailure)
             await this.sendClawBotSummary(accountStats, runStartTime, hadFailure)
             await flushAllWebhooks()
+
+            if (!hadFailure) markRunSucceeded()
             process.exit(0)
         }
 
         return accountStats
+    }
+
+    private async gapBetweenWorkers(): Promise<void> {
+        const delayMs = this.utils.randomDelay(60000, 240000)
+        this.logger.debug(this.isMobile, 'FLOW', `大任务间隔等待 | ${Math.round(delayMs / 1000)}秒`)
+        await this.utils.wait(delayMs)
     }
 
     private async waitBeforeNextAccount(nextEmail?: string): Promise<void> {
@@ -885,8 +910,14 @@ export class MicrosoftRewardsBot {
                     if (this.config.ensureStreakProtection) {
                         await this.activities.doEnsureStreakProtection()
                     }
-                    if (this.config.workers.doPunchCards) await this.activities.doPunchCardsMobile(data)
-                    if (this.config.workers.doActivateSearchPerk) await this.activities.doActivateSearchPerk(data)
+                    if (this.config.workers.doPunchCards) {
+                        await this.activities.doPunchCardsMobile(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (this.config.workers.doActivateSearchPerk) {
+                        await this.activities.doActivateSearchPerk(data)
+                        await this.gapBetweenWorkers()
+                    }
 
                     const plan = await this.searchManager.getSearchPoints()
                     const doMobileSearch = plan.doMobile
@@ -907,12 +938,26 @@ export class MicrosoftRewardsBot {
                         await closeDesktopSession()
                     }
 
-                    if (this.config.workers.doDailySet) await this.activities.doDailySet(data)
-                    if (this.config.workers.doMorePromotions) await this.activities.doMorePromotions(data)
-                    if (appAvailable && this.config.workers.doDailyCheckIn) await this.activities.doDailyCheckIn()
-                    if (appAvailable && this.config.workers.doAppPromotions && appData)
+                    if (this.config.workers.doDailySet) {
+                        await this.activities.doDailySet(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (this.config.workers.doMorePromotions) {
+                        await this.activities.doMorePromotions(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doDailyCheckIn) {
+                        await this.activities.doDailyCheckIn()
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doAppPromotions && appData) {
                         await this.activities.doAppPromotions(appData)
-                    if (appAvailable && this.config.workers.doReadToEarn) await this.activities.doReadToEarn()
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doReadToEarn) {
+                        await this.activities.doReadToEarn()
+                        await this.gapBetweenWorkers()
+                    }
 
                     if (doMobileSearch) mobilePoints = await this.searchManager.searchMobile(account)
                     if (doBonus) bonusPoints = await this.searchManager.bonusMobile(account)
@@ -921,14 +966,34 @@ export class MicrosoftRewardsBot {
                     if (this.config.ensureStreakProtection) {
                         await this.activities.doEnsureStreakProtection()
                     }
-                    if (this.config.workers.doDailySet) await this.activities.doDailySet(data)
-                    if (this.config.workers.doActivateSearchPerk) await this.activities.doActivateSearchPerk(data)
-                    if (this.config.workers.doMorePromotions) await this.activities.doMorePromotions(data)
-                    if (appAvailable && this.config.workers.doDailyCheckIn) await this.activities.doDailyCheckIn()
-                    if (appAvailable && this.config.workers.doAppPromotions && appData)
+                    if (this.config.workers.doDailySet) {
+                        await this.activities.doDailySet(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (this.config.workers.doActivateSearchPerk) {
+                        await this.activities.doActivateSearchPerk(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (this.config.workers.doMorePromotions) {
+                        await this.activities.doMorePromotions(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doDailyCheckIn) {
+                        await this.activities.doDailyCheckIn()
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doAppPromotions && appData) {
                         await this.activities.doAppPromotions(appData)
-                    if (appAvailable && this.config.workers.doReadToEarn) await this.activities.doReadToEarn()
-                    if (this.config.workers.doPunchCards) await this.activities.doPunchCardsMobile(data)
+                        await this.gapBetweenWorkers()
+                    }
+                    if (appAvailable && this.config.workers.doReadToEarn) {
+                        await this.activities.doReadToEarn()
+                        await this.gapBetweenWorkers()
+                    }
+                    if (this.config.workers.doPunchCards) {
+                        await this.activities.doPunchCardsMobile(data)
+                        await this.gapBetweenWorkers()
+                    }
 
                     const plan = await this.searchManager.getSearchPoints()
                     const doMobileSearch = plan.doMobile
@@ -1002,7 +1067,10 @@ export class MicrosoftRewardsBot {
                     }`
                 )
 
-                if (this.config.workers.doClaimBonusPoints) await this.activities.doClaimBonusPoints()
+                if (this.config.workers.doClaimBonusPoints) {
+                    await this.gapBetweenWorkers()
+                    await this.activities.doClaimBonusPoints()
+                }
 
                 if (edgeBrowsingTask) {
                     if (!edgeBrowsingFinished) {

@@ -1,6 +1,7 @@
 import { URLs } from '../../../constants/urls'
 import { BING_APP_USER_AGENT } from '../../../constants/userAgents'
 import type { HttpRequestConfig } from '../../../util/Http'
+import { getReadToEarnArticleLimit } from '../../../util/Humanize'
 import { randomBytes } from 'crypto'
 import { BaseActivity } from '../BaseActivity'
 
@@ -36,7 +37,7 @@ export class ReadToEarn extends BaseActivity {
                 country: this.bot.userData.geoLocale
             }
 
-            const articleCount = 10
+            const articleCount = getReadToEarnArticleLimit(10)
             let totalGained = 0
             let articlesRead = 0
             let oldBalance = startBalance

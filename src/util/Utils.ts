@@ -1,4 +1,5 @@
 import ms, { StringValue } from 'ms'
+import { waitForQuietHours } from './Humanize'
 
 export function isBrowserClosedError(error: unknown): boolean {
     const msg = (error instanceof Error ? error.message : String(error ?? '')).toLowerCase()
@@ -22,9 +23,12 @@ export default class Util {
             time = this.stringToNumber(time)
         }
 
-        return new Promise<void>(resolve => {
+        await new Promise<void>(resolve => {
             setTimeout(resolve, time)
         })
+
+        // 等待结束时若跨入静默时段，挂起到时段结束（humanize.quietHours）
+        await waitForQuietHours()
     }
 
     getFormattedDate(ms = Date.now()): string {
