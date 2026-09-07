@@ -1,6 +1,9 @@
+export type BrowserChannel = 'chromium' | 'msedge'
+
 export interface Config {
     sessionPath: string
     headless: boolean
+    browserChannel?: BrowserChannel
     clusters: number
     errorDiagnostics: boolean
     ensureStreakProtection: boolean

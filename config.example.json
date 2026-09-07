@@ -1,5 +1,6 @@
 {
     "sessionPath": "sessions",
+    "browserChannel": "chromium",
     "headless": false,
     "clusters": 1,
     "errorDiagnostics": false,

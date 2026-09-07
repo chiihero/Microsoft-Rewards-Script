@@ -7,6 +7,7 @@ import { loadSession, saveFingerprint } from '../util/SessionStore'
 import { fingerprintMatchesLocale } from '../util/Locale'
 import { formatBrowserProxyServer } from '../util/Proxy'
 import { UserAgentManager } from './UserAgent'
+import { URLs } from '../constants/urls'
 
 import type { Account } from '../interface/Account'
 import { configureMediaBlocking } from './MediaBlocker'
@@ -50,6 +51,9 @@ class Browser {
 
     async createBrowser(account: Account): Promise<BrowserCreationResult> {
         const headless = this.bot.config.headless
+        const channel = this.bot.config.browserChannel ?? 'chromium'
+        // 真实 Edge 依赖系统安装；linux（docker）环境通常没有，回退内置补丁版 Chromium
+        const useRealEdge = channel === 'msedge' && process.platform !== 'linux'
 
         const hasProxy = Boolean(account.proxy.url)
         const ignoreCertificateErrors = hasProxy && this.bot.config.proxy.ignoreCertificateErrors
@@ -83,14 +87,33 @@ class Browser {
                 )
             }
 
+            if (channel === 'msedge' && !useRealEdge) {
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'BROWSER',
+                    'browserChannel=msedge 在当前平台不可用（未安装系统 Edge），已回退内置补丁版 Chromium'
+                )
+            } else if (useRealEdge) {
+                // Edge 152 + playwright/patchright 1.6x 访问微软账户页面（rewards/登录）会触发浏览器进程崩溃，
+                // 上游 issue microsoft/playwright#41438 至 1.63.0 仍未修复；稳定前保持实验性
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'BROWSER',
+                    'browserChannel=msedge 为实验性选项：当前 Edge/playwright 版本组合在访问 rewards.bing.com 时可能崩溃（上游 #41438），如遇失败请改回 chromium'
+                )
+            }
+
             this.bot.logger.info(
                 this.bot.isMobile,
                 'BROWSER',
-                `正在启动内置的补丁版 Chromium (Edge UA) | headless=${headless} | platform=${process.platform} | proxy=${hasProxy ? 'yes' : 'no'} | tls=${ignoreCertificateErrors ? 'verification-disabled' : 'verified'} | sandbox=${sandboxDisabled ? 'disabled-root' : 'enabled'}`
+                useRealEdge
+                    ? `正在启动真实 Edge (channel=msedge) | headless=${headless} | platform=${process.platform} | proxy=${hasProxy ? 'yes' : 'no'} | tls=${ignoreCertificateErrors ? 'verification-disabled' : 'verified'}`
+                    : `正在启动内置的补丁版 Chromium (Edge UA) | headless=${headless} | platform=${process.platform} | proxy=${hasProxy ? 'yes' : 'no'} | tls=${ignoreCertificateErrors ? 'verification-disabled' : 'verified'} | sandbox=${sandboxDisabled ? 'disabled-root' : 'enabled'}`
             )
 
             browser = await rebrowser.chromium.launch({
                 headless,
+                ...(useRealEdge && { channel: 'msedge' as const }),
                 ...(proxyConfig && { proxy: proxyConfig }),
                 args: [...Browser.BROWSER_ARGS, ...sandboxArgs, ...certArgs]
             })
@@ -125,43 +148,66 @@ class Browser {
                 ? account.saveFingerprint.mobile
                 : account.saveFingerprint.desktop
 
-            const savedFingerprint = shouldUseFingerprint ? session?.fingerprint : null
-            const reuseFingerprint =
-                savedFingerprint && fingerprintMatchesLocale(savedFingerprint, this.bot.accountLocale)
+            // 真实 Edge 桌面端：保留浏览器原生指纹一致性（真 UA/WebGL/字体/编解码器），
+            // 不做合成指纹注入，仅从真实环境读取 UA 供 HTTP 层使用
+            const useNativeFingerprint = useRealEdge && !this.bot.isMobile
 
-            if (savedFingerprint && !reuseFingerprint) {
-                this.bot.logger.info(
-                    this.bot.isMobile,
-                    'BROWSER-FINGERPRINT',
-                    `已保存的指纹区域与 ${this.bot.accountLocale.locale} 不匹配；正在生成替代指纹`
-                )
-            }
+            let fingerprint: BrowserFingerprintWithHeaders
+            let context: BrowserContext
+            let reuseFingerprint: boolean | null | undefined = false
 
-            const fingerprint =
-                (reuseFingerprint && savedFingerprint) || (await this.generateFingerprint(this.bot.isMobile))
-
-            const screen = fingerprint.fingerprint.screen
-
-            //@ts-expect-error It doesn't like the browser instance from different packages
-            const injected = await newInjectedContext(browser, {
-                fingerprint,
-                newContextOptions: {
+            if (useNativeFingerprint) {
+                context = await browser.newContext({
                     permissions: [],
                     ignoreHTTPSErrors: ignoreCertificateErrors,
+                    locale: this.bot.accountLocale.locale,
+                    viewport: { width: 1920, height: 1080 },
                     // Restore cookies
                     ...(session?.storageState ? { storageState: session.storageState } : {}),
-                    ...(this.bot.isMobile
-                        ? {
-                              isMobile: true,
-                              hasTouch: true,
-                              deviceScaleFactor: screen.devicePixelRatio,
-                              viewport: { width: screen.width, height: screen.height },
-                              screen: { width: screen.width, height: screen.height }
-                          }
-                        : {})
+                    // headless 下真 Edge 的 UA 带 HeadlessChrome 标记，用修正后的真实 UA 覆盖
+                    ...(headless && { userAgent: await this.resolveNativeUserAgent(browser) })
+                })
+                fingerprint = await this.captureNativeFingerprint(context)
+            } else {
+                const savedFingerprint = shouldUseFingerprint ? session?.fingerprint : null
+                reuseFingerprint =
+                    savedFingerprint && fingerprintMatchesLocale(savedFingerprint, this.bot.accountLocale)
+
+                if (savedFingerprint && !reuseFingerprint) {
+                    this.bot.logger.info(
+                        this.bot.isMobile,
+                        'BROWSER-FINGERPRINT',
+                        `已保存的指纹区域与 ${this.bot.accountLocale.locale} 不匹配；正在生成替代指纹`
+                    )
                 }
-            })
-            const context = injected as unknown as BrowserContext
+
+                fingerprint =
+                    (reuseFingerprint && savedFingerprint) ||
+                    (await this.generateFingerprint(this.bot.isMobile))
+
+                const screen = fingerprint.fingerprint.screen
+
+                //@ts-expect-error It doesn't like the browser instance from different packages
+                const injected = await newInjectedContext(browser, {
+                    fingerprint,
+                    newContextOptions: {
+                        permissions: [],
+                        ignoreHTTPSErrors: ignoreCertificateErrors,
+                        // Restore cookies
+                        ...(session?.storageState ? { storageState: session.storageState } : {}),
+                        ...(this.bot.isMobile
+                            ? {
+                                  isMobile: true,
+                                  hasTouch: true,
+                                  deviceScaleFactor: screen.devicePixelRatio,
+                                  viewport: { width: screen.width, height: screen.height },
+                                  screen: { width: screen.width, height: screen.height }
+                              }
+                            : {})
+                    }
+                })
+                context = injected as unknown as BrowserContext
+            }
 
             if (hasProxy) {
                 await context.addInitScript(() => {
@@ -185,7 +231,7 @@ class Browser {
 
             context.setDefaultTimeout(this.bot.utils.stringToNumber(this.bot.config?.globalTimeout ?? 30000))
 
-            if (shouldUseFingerprint && !reuseFingerprint) {
+            if (shouldUseFingerprint && !reuseFingerprint && !useNativeFingerprint) {
                 saveFingerprint(this.bot.config.sessionPath, account.email, this.bot.isMobile, fingerprint)
             }
 
@@ -215,6 +261,102 @@ class Browser {
         })
 
         return this.userAgentManager.updateFingerprintUserAgent(fingerPrintData, isMobile)
+    }
+
+    /**
+     * headless 下真实 Edge 的 navigator.userAgent 会被标记为 HeadlessChrome。
+     * 读取原始值并替换为真实形态（Chrome/{major}.0.0.0 ... Edg/{major}.0.0.0），
+     * 供 newContext 显式覆盖 navigator 与 HTTP 头。
+     */
+    private async resolveNativeUserAgent(browser: rebrowser.Browser): Promise<string> {
+        const tempContext = await browser.newContext()
+        const page = await tempContext.newPage()
+        try {
+            const ua = await page.evaluate(() => navigator.userAgent)
+            const fixed = ua.replace('HeadlessChrome/', 'Chrome/')
+            if (fixed !== ua) {
+                this.bot.logger.info(
+                    this.bot.isMobile,
+                    'BROWSER',
+                    '已修正 headless UA 的 HeadlessChrome 标记；WebGL/Client Hints 为真实值无需修正'
+                )
+            }
+            return fixed
+        } finally {
+            await tempContext.close()
+        }
+    }
+
+    /**
+     * 从真实浏览器环境读取 UA 与 Client Hints，构造 HTTP 层使用的"真指纹"。
+     * 仅在真实 Edge 桌面端（不注入合成指纹）时使用。
+     */
+    private async captureNativeFingerprint(context: BrowserContext): Promise<BrowserFingerprintWithHeaders> {
+        const page = await context.newPage()
+        try {
+            // userAgentData 仅在安全上下文可用，about:blank 读不到，需在真实页面上读取
+            await page.goto(URLs.bing.origin, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
+            const native = await page.evaluate(async () => {
+                interface UABrandVersion {
+                    brand: string
+                    version: string
+                }
+                interface UAData {
+                    brands: Iterable<UABrandVersion>
+                    mobile: boolean
+                    platform: string
+                    getHighEntropyValues(hints: string[]): Promise<{
+                        fullVersionList?: UABrandVersion[]
+                        platformVersion?: string
+                        architecture?: string
+                        bitness?: string
+                        model?: string
+                    }>
+                }
+                const data = (navigator as Navigator & { userAgentData?: UAData }).userAgentData
+                const high = data?.getHighEntropyValues
+                    ? await data.getHighEntropyValues([
+                          'fullVersionList',
+                          'platformVersion',
+                          'architecture',
+                          'bitness',
+                          'model'
+                      ])
+                    : null
+                return {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    brands: data ? Array.from(data.brands) : null,
+                    mobile: data ? data.mobile : false,
+                    platform: data ? data.platform : null,
+                    high
+                }
+            })
+
+            const brandsHeader = native.brands?.map(b => `"${b.brand}";v="${b.version}"`).join(', ')
+            const fullVersionList = native.high?.fullVersionList
+            const fullHeader = fullVersionList?.map(b => `"${b.brand}";v="${b.version}"`).join(', ')
+
+            return {
+                fingerprint: {
+                    navigator: {
+                        userAgent: native.userAgent,
+                        language: native.language
+                    },
+                    screen: { width: 1920, height: 1080, devicePixelRatio: 1 }
+                },
+                headers: {
+                    'user-agent': native.userAgent,
+                    'accept-language': this.bot.accountLocale.acceptLanguage,
+                    ...(brandsHeader && { 'sec-ch-ua': brandsHeader }),
+                    ...(fullHeader && { 'sec-ch-ua-full-version-list': fullHeader }),
+                    'sec-ch-ua-mobile': native.mobile ? '?1' : '?0',
+                    ...(native.platform && { 'sec-ch-ua-platform': `"${native.platform}"` })
+                }
+            } as unknown as BrowserFingerprintWithHeaders
+        } finally {
+            await page.close()
+        }
     }
 }
 

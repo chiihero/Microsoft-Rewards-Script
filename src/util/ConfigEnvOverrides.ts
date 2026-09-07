@@ -11,6 +11,7 @@ export interface EnvOverrideEntry {
 export const ENV_OVERRIDES: EnvOverrideEntry[] = [
     // General
     { env: 'CONFIG_CLUSTERS', path: 'clusters', type: 'number' },
+    { env: 'CONFIG_BROWSER_CHANNEL', path: 'browserChannel', type: 'string' },
     { env: 'CONFIG_DEBUG_LOGS', path: 'debugLogs', type: 'bool' },
     { env: 'CONFIG_ERROR_DIAGNOSTICS', path: 'errorDiagnostics', type: 'bool' },
     { env: 'CONFIG_ENSURE_STREAK_PROTECTION', path: 'ensureStreakProtection', type: 'bool' },

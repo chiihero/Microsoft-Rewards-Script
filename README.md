@@ -272,6 +272,7 @@ docker compose restart          # 重启（不重建）
 | --------------------------- | ----------------------------------- | --------------- | ------------------------------------- |
 | `sessionPath`               | 存储浏览器会话的目录                | `sessions`      | —                                     |
 | `headless`                  | 在后台运行浏览器                    | `false`（可见） | Docker 强制 `true`                    |
+| `browserChannel`            | `chromium`（内置补丁版，推荐）或 `msedge`（系统真实 Edge；⚠️ 实验性：Edge 152 + Playwright 1.6x 访问 rewards.bing.com 会崩溃，见 [playwright#41438](https://github.com/microsoft/playwright/issues/41438)，修复后可重试） | `chromium` | `CONFIG_BROWSER_CHANNEL`              |
 | `clusters`                  | 并发账户集群数                      | `1`             | `CONFIG_CLUSTERS`                     |
 | `errorDiagnostics`          | 出错时保存诊断信息到 `diagnostics/` | `false`         | `CONFIG_ERROR_DIAGNOSTICS`            |
 | `ensureStreakProtection`    | 确保连击保护已开启                  | `true`          | `CONFIG_ENSURE_STREAK_PROTECTION`     |

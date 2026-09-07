@@ -119,6 +119,7 @@ const WebhookSchema = z.object({
 export const ConfigSchema = z.object({
     sessionPath: z.string(),
     headless: z.boolean(),
+    browserChannel: z.enum(['chromium', 'msedge']).default('chromium'),
     clusters: z.number().int().nonnegative(),
     errorDiagnostics: z.boolean(),
     ensureStreakProtection: z.boolean(),
@@ -268,6 +269,7 @@ export const AccountSchema = z.object({
 const defaultConfig: Config = {
     sessionPath: 'sessions',
     headless: true,
+    browserChannel: 'chromium',
     clusters: 1,
     errorDiagnostics: true,
     ensureStreakProtection: true,
