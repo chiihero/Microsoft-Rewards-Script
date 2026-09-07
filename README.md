@@ -81,6 +81,7 @@
 **通知与监控**
 
 - ✅ PushPlus 微信推送（国内推荐，无需翻墙）
+- ✅ Server酱 微信推送（Turbo 版，扫码获取 SendKey 即用）
 - ✅ 微信 ClawBot 推送（腾讯官方 iLink 直连，免费无第三方服务）
 - ✅ Discord / Telegram / ntfy 推送
 - ✅ 全面日志记录（日志过滤 + 落盘 `logs/` 按天分文件，自动清理 90 天前旧日志）
@@ -192,6 +193,17 @@ ACCOUNT_1_PASSWORD=your_password
 
 > 多账号按 `ACCOUNT_2_*`、`ACCOUNT_3_*` 递增（编号无需连续，按编号升序运行）。完整字段见 `env.example`。
 
+> ⚠️ **Docker 用户注意：`.env` 不会自动传入容器**。Compose 只把同目录 `.env` 用于变量替换；若你自行编写/裁剪了 `compose.yaml`，必须保留 `env_file` 段（本仓库模板已内置），否则容器里一个账号都读不到：
+>
+> ```yaml
+> services:
+>   microsoft-rewards-script:
+>     env_file:
+>       - path: .env
+> ```
+>
+> 另外用**列表式** `environment:`（`- KEY=value`）时值**不要加引号**——引号会成为值的一部分（如 `- CRON_SCHEDULE="0 9 * * *"` 会让 cron 表达式带引号而失效）；映射式（`KEY: value`）则按 YAML 规则正常加引号。
+
 ### 2. 编辑 compose.yaml（可选）
 
 默认配置开箱即用，如需调整取消对应行注释即可：
@@ -201,7 +213,7 @@ ACCOUNT_1_PASSWORD=your_password
 - `RUN_ON_START`：容器启动时是否立即跑一次（默认 `true`）
 - `CONFIG_SEARCH_QUERY_ENGINES`：查询源，国内推荐 `china,local`
 - `CONFIG_CHINA_API_APPKEY`：gmya.net appkey，解除免费档限流（留空走免费档）
-- `CONFIG_PUSHPLUS_*` / `CONFIG_CLAWBOT_*`：微信推送
+- `CONFIG_PUSHPLUS_*` / `CONFIG_SERVERCHAN_*` / `CONFIG_CLAWBOT_*`：微信推送
 
 > 完整的 `CONFIG_*` 环境变量列表见[配置参考](#️-配置参考)各表格。`CONFIG_*` 每次启动都会覆盖 `./config/config.json`。
 
@@ -430,6 +442,7 @@ docker compose restart          # 重启（不重建）
 | `webhook.telegram.enabled` / `.botToken` / `.chatId`                        | Telegram 推送                                   | `false` | `CONFIG_TELEGRAM_ENABLED` / `_BOTTOKEN` / `_CHATID` |
 | `webhook.ntfy.enabled` / `.url` / `.topic` / `.token` 等                    | ntfy 推送                                       | `false` | `CONFIG_NTFY_*`                                     |
 | `webhook.pushplus.enabled` / `.token` / `.title` / `.template` / `.channel` | PushPlus 微信推送                               | `false` | `CONFIG_PUSHPLUS_*`                                 |
+| `webhook.serverchan.enabled` / `.sendKey` / `.title`                        | Server酱 微信推送（Turbo）                      | `false` | `CONFIG_SERVERCHAN_ENABLED` / `_SENDKEY` / `_TITLE` |
 | `webhook.clawbot.enabled` / `.authFile`                                     | 微信 ClawBot 推送                               | `false` | `CONFIG_CLAWBOT_ENABLED` / `_AUTHFILE`              |
 | `webhook.webhookLogFilter.*`                                                | Webhook 逐条日志过滤（结构同 consoleLogFilter） | `false` | `CONFIG_WEBHOOK_LOG_FILTER_*`                       |
 

@@ -63,6 +63,10 @@ services:
             #CONFIG_PUSHPLUS_TITLE: 'Microsoft-Rewards-Script'
             #CONFIG_PUSHPLUS_TEMPLATE: 'txt'        # txt / html / markdown
             #CONFIG_PUSHPLUS_CHANNEL: ''             # 默认微信；可选其他 channel
+            # Server酱推送（Turbo 版，SendKey 在 sct.ftqq.com 微信扫码获取）：
+            #CONFIG_SERVERCHAN_ENABLED: 'true'
+            #CONFIG_SERVERCHAN_SENDKEY: 'SCTxxxxxxxxxxxxxxxx'
+            #CONFIG_SERVERCHAN_TITLE: 'Microsoft-Rewards-Script'
             # 微信 ClawBot 推送（官方 iLink 直连，免费；需容器内完成一次扫码，
             # 建议配合 API_MODE/tty 使用，或本地登录后把 clawbot-auth.json 挂载进容器）：
             #CONFIG_CLAWBOT_ENABLED: 'true'

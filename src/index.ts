@@ -29,6 +29,7 @@ import { sendDiscord, flushDiscordQueue } from './logging/Discord'
 import { sendNtfy, flushNtfyQueue } from './logging/Ntfy'
 import { sendTelegram, flushTelegramQueue } from './logging/Telegram'
 import { sendPushPlus, flushPushPlusQueue } from './logging/PushPlus'
+import { sendServerChan, flushServerChanQueue } from './logging/ServerChan'
 import { sendClawBot, flushClawBotQueue, ensureClawBotReady } from './logging/ClawBot'
 import type { DashboardData } from './interface/DashboardData'
 import type { AppDashboardData } from './interface/AppDashBoardData'
@@ -76,6 +77,7 @@ async function flushAllWebhooks(timeoutMs = 5000): Promise<void> {
         flushNtfyQueue(timeoutMs),
         flushTelegramQueue(timeoutMs),
         flushPushPlusQueue(timeoutMs),
+        flushServerChanQueue(timeoutMs),
         flushClawBotQueue(timeoutMs)
     ])
     closeSessionStore()
@@ -372,6 +374,7 @@ export class MicrosoftRewardsBot {
                 )
 
                 await this.sendPushPlusSummary(allAccountStats, runStartTime, hadWorkerFailure)
+                await this.sendServerChanSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await this.sendClawBotSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await flushAllWebhooks()
 
@@ -465,6 +468,20 @@ export class MicrosoftRewardsBot {
 
         const content = this.buildSummaryMessage(accountStats, runStartTime, hadWorkerFailure)
         await sendPushPlus(pushplus, content)
+    }
+
+    private async sendServerChanSummary(
+        accountStats: AccountStats[],
+        runStartTime: number,
+        hadWorkerFailure: boolean
+    ): Promise<void> {
+        const serverchan = this.config?.webhook?.serverchan
+        if (!serverchan?.enabled || !serverchan.sendKey) {
+            return
+        }
+
+        const content = this.buildSummaryMessage(accountStats, runStartTime, hadWorkerFailure)
+        await sendServerChan(serverchan, content)
     }
 
     private async sendClawBotSummary(
@@ -610,6 +627,7 @@ export class MicrosoftRewardsBot {
 
             const hadFailure = accountStats.some(s => !s.success)
             await this.sendPushPlusSummary(accountStats, runStartTime, hadFailure)
+            await this.sendServerChanSummary(accountStats, runStartTime, hadFailure)
             await this.sendClawBotSummary(accountStats, runStartTime, hadFailure)
             await flushAllWebhooks()
             process.exit(0)

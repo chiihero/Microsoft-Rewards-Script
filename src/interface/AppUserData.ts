@@ -192,6 +192,7 @@ export interface ProfileAttributes {
     waitlistattributes: string
     waitlistattributes_upd: Date
     serpbotscore_upd: Date
+    serpbotscore?: string
     iscashbackeligible: string
     cbedc: string
     rlscpct_upd: Date

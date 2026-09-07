@@ -21,6 +21,8 @@ export default class BrowserFunc {
 
     private useFlyoutDashboardFallback = false
 
+    private botMetricsLoggedPlatforms = new Set<string>()
+
     constructor(bot: MicrosoftRewardsBot) {
         this.bot = bot
     }
@@ -49,7 +51,10 @@ export default class BrowserFunc {
 
                     await this.applyResponseCookies(URLs.rewards.userInfoApi, response.headers['set-cookie'])
 
-                    if (response.data?.dashboard) return response.data
+                    if (response.data?.dashboard) {
+                        this.logBotDetectionMetrics(response.data)
+                        return response.data
+                    }
                     throw new Error('Dashboard data missing from API response')
                 } catch (error) {
                     primaryError = error
@@ -101,7 +106,9 @@ export default class BrowserFunc {
                 'GET-DASHBOARD-DATA',
                 `使用 Bing flyout 部分仪表板 | 疑似受限=${detection.likelyLimited} | bot标记=${detection.hasBotProfileMarkers} | 活动折叠=${detection.hasCollapsedActivities}`
             )
-            return mapFlyoutToDashboard(response.data)
+            const mappedDashboard = mapFlyoutToDashboard(response.data)
+            this.logBotDetectionMetrics(mappedDashboard)
+            return mappedDashboard
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
@@ -109,6 +116,31 @@ export default class BrowserFunc {
                 `获取仪表板数据失败（主接口与 Bing flyout 兜底均失败）: ${this.errorMessage(error)}`
             )
             throw error
+        }
+    }
+
+    private logBotDetectionMetrics(data: DashboardData): void {
+        const attributes = data.profile?.attributes as unknown as Record<string, unknown> | undefined
+        const score = attributes?.serpbotscore ?? attributes?.SerpBotScore
+        const scoreUpdated = attributes?.serpbotscore_upd ?? attributes?.SerpBotScore_upd
+        const warningNames = (data.dashboard?.userWarnings ?? [])
+            .map(warning => warning?.name)
+            .filter((name): name is string => Boolean(name))
+        const platform = this.bot.isMobile ? 'MOBILE' : 'DESKTOP'
+        const firstTime = !this.botMetricsLoggedPlatforms.has(platform)
+        this.botMetricsLoggedPlatforms.add(platform)
+
+        const message =
+            `机器人检测指标 | serpbotscore=${score ?? '未知'} | 更新时间=${
+                scoreUpdated ? String(scoreUpdated).slice(0, 16) : '未知'
+            } | userWarnings=${warningNames.length > 0 ? warningNames.join(', ') : '无'}`
+
+        if (warningNames.length > 0) {
+            this.bot.logger.warn(this.bot.isMobile, 'GET-DASHBOARD-DATA', message)
+        } else if (firstTime) {
+            this.bot.logger.info(this.bot.isMobile, 'GET-DASHBOARD-DATA', message)
+        } else {
+            this.bot.logger.debug(this.bot.isMobile, 'GET-DASHBOARD-DATA', message)
         }
     }
 
