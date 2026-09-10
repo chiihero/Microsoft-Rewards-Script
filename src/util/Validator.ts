@@ -50,6 +50,25 @@ const QueryEngineSchema = z.union([
         .regex(/^rss(\.[A-Za-z0-9_-]+){0,2}$/, 'Invalid rss selector (use rss, rss.<site>, or rss.<site>.<endpoint>)')
 ])
 
+const HumanizeRangeSchema = z.object({
+    min: z.number(),
+    max: z.number()
+})
+
+const QuietHoursRuleSchema = z.object({
+    days: z.array(z.string()),
+    start: z.string(),
+    end: z.string()
+})
+
+const HumanizeSchema = z.object({
+    enabled: z.boolean().optional(),
+    skipWhenCompletedToday: z.boolean().optional(),
+    quietHours: z.array(QuietHoursRuleSchema).optional(),
+    searchTargetRatio: HumanizeRangeSchema.optional(),
+    readToEarnArticles: HumanizeRangeSchema.optional()
+})
+
 const AccountLanguageSchema = z
     .string()
     .trim()
@@ -180,7 +199,8 @@ export const ConfigSchema = z.object({
         ignoreCertificateErrors: z.boolean().default(false)
     }),
     consoleLogFilter: LogFilterSchema,
-    webhook: WebhookSchema
+    webhook: WebhookSchema,
+    humanize: HumanizeSchema.optional()
 })
 
 const AccountProxySchema = z
