@@ -96,6 +96,10 @@
             "sendKey": "",
             "title": "Microsoft-Rewards-Script"
         },
+        "qywxbot": {
+            "enabled": false,
+            "sendKey": ""
+        },
         "clawbot": {
             "enabled": false,
             "authFile": ""

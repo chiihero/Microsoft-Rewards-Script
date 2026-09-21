@@ -93,6 +93,10 @@ export const ENV_OVERRIDES: EnvOverrideEntry[] = [
     { env: 'CONFIG_SERVERCHAN_SENDKEY', path: 'webhook.serverchan.sendKey', type: 'string' },
     { env: 'CONFIG_SERVERCHAN_TITLE', path: 'webhook.serverchan.title', type: 'string' },
 
+    // 企业微信群机器人 webhook（国内微信推送，sendKey 为群机器人 Webhook 地址中的 key 参数）
+    { env: 'CONFIG_QYWXBOT_ENABLED', path: 'webhook.qywxbot.enabled', type: 'bool' },
+    { env: 'CONFIG_QYWXBOT_SENDKEY', path: 'webhook.qywxbot.sendKey', type: 'string' },
+
     // Humanize 拟人化运行策略（quietHours 为数组结构，请直接编辑 config.json）
     { env: 'CONFIG_HUMANIZE_ENABLED', path: 'humanize.enabled', type: 'bool' },
     { env: 'CONFIG_HUMANIZE_SKIP_WHEN_COMPLETED', path: 'humanize.skipWhenCompletedToday', type: 'bool' },

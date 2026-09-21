@@ -126,6 +126,19 @@ const WebhookSchema = z.object({
             channel: z.string().optional()
         })
         .optional(),
+    serverchan: z
+        .object({
+            enabled: z.boolean().optional(),
+            sendKey: z.string(),
+            title: z.string().optional()
+        })
+        .optional(),
+    qywxbot: z
+        .object({
+            enabled: z.boolean().optional(),
+            sendKey: z.string()
+        })
+        .optional(),
     clawbot: z
         .object({
             enabled: z.boolean().optional(),

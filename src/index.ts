@@ -31,6 +31,7 @@ import { sendNtfy, flushNtfyQueue } from './logging/Ntfy'
 import { sendTelegram, flushTelegramQueue } from './logging/Telegram'
 import { sendPushPlus, flushPushPlusQueue } from './logging/PushPlus'
 import { sendServerChan, flushServerChanQueue } from './logging/ServerChan'
+import { sendQywxBot, flushQywxBotQueue } from './logging/QywxBot'
 import { sendClawBot, flushClawBotQueue, ensureClawBotReady } from './logging/ClawBot'
 import type { DashboardData } from './interface/DashboardData'
 import type { AppDashboardData } from './interface/AppDashBoardData'
@@ -79,6 +80,7 @@ async function flushAllWebhooks(timeoutMs = 5000): Promise<void> {
         flushTelegramQueue(timeoutMs),
         flushPushPlusQueue(timeoutMs),
         flushServerChanQueue(timeoutMs),
+        flushQywxBotQueue(timeoutMs),
         flushClawBotQueue(timeoutMs)
     ])
     closeSessionStore()
@@ -391,6 +393,7 @@ export class MicrosoftRewardsBot {
 
                 await this.sendPushPlusSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await this.sendServerChanSummary(allAccountStats, runStartTime, hadWorkerFailure)
+                await this.sendQywxBotPushSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await this.sendClawBotSummary(allAccountStats, runStartTime, hadWorkerFailure)
                 await flushAllWebhooks()
 
@@ -499,6 +502,30 @@ export class MicrosoftRewardsBot {
 
         const content = this.buildSummaryMessage(accountStats, runStartTime, hadWorkerFailure)
         await sendServerChan(serverchan, content)
+    }
+
+    private async sendQywxBotPushSummary(
+        accountStats: AccountStats[],
+        runStartTime: number,
+        hadWorkerFailure: boolean
+    ): Promise<void> {
+        const qywxbot = this.config?.webhook?.qywxbot
+        if (!qywxbot?.enabled || !qywxbot.sendKey) {
+            return
+        }
+
+        const content = this.buildSummaryMessage(accountStats, runStartTime, hadWorkerFailure)
+        const result = await sendQywxBot(qywxbot, content)
+
+        if (result.skipped) {
+            return
+        }
+
+        if (result.ok) {
+            this.logger.info('main', 'QYWXBOT', '企业微信机器人推送成功', 'green')
+        } else {
+            this.logger.warn('main', 'QYWXBOT', `企业微信机器人推送失败 | ${result.message ?? '未知错误'}`)
+        }
     }
 
     private async sendClawBotSummary(
@@ -645,6 +672,7 @@ export class MicrosoftRewardsBot {
             const hadFailure = accountStats.some(s => !s.success)
             await this.sendPushPlusSummary(accountStats, runStartTime, hadFailure)
             await this.sendServerChanSummary(accountStats, runStartTime, hadFailure)
+            await this.sendQywxBotPushSummary(accountStats, runStartTime, hadFailure)
             await this.sendClawBotSummary(accountStats, runStartTime, hadFailure)
             await flushAllWebhooks()
 

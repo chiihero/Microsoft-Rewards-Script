@@ -67,6 +67,9 @@ services:
             #CONFIG_SERVERCHAN_ENABLED: 'true'
             #CONFIG_SERVERCHAN_SENDKEY: 'SCTxxxxxxxxxxxxxxxx'
             #CONFIG_SERVERCHAN_TITLE: 'Microsoft-Rewards-Script'
+            # 企业微信群机器人推送（群设置 → 群机器人 → 添加，取 Webhook 地址中 key= 后的串）：
+            #CONFIG_QYWXBOT_ENABLED: 'true'
+            #CONFIG_QYWXBOT_SENDKEY: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
             # 微信 ClawBot 推送（官方 iLink 直连，免费；需容器内完成一次扫码，
             # 建议配合 API_MODE/tty 使用，或本地登录后把 clawbot-auth.json 挂载进容器）：
             #CONFIG_CLAWBOT_ENABLED: 'true'

@@ -111,6 +111,7 @@ export interface ConfigWebhook {
     telegram?: WebhookTelegramConfig
     pushplus?: WebhookPushPlusConfig
     serverchan?: WebhookServerChanConfig
+    qywxbot?: WebhookQywxBotConfig
     clawbot?: WebhookClawBotConfig
     webhookLogFilter: LogFilter
 }
@@ -156,6 +157,11 @@ export interface WebhookServerChanConfig {
     enabled?: boolean
     sendKey: string
     title?: string
+}
+
+export interface WebhookQywxBotConfig {
+    enabled?: boolean
+    sendKey: string
 }
 
 export interface WebhookClawBotConfig {
