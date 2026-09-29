@@ -25,6 +25,7 @@
         "clear-diagnostics": "rimraf diagnostics",
         "clear-sessions": "node ./scripts/main/clearSessions.js",
         "open-session": "node ./scripts/main/browserSession.js -email",
+        "manual-login": "node ./scripts/main/manualLogin.js",
         "clawbot:login": "node -r ts-node/register/transpile-only ./scripts/main/clawbotLogin.cjs",
         "test:clawbot-smoke": "node -r ts-node/register/transpile-only ./scripts/tests/smokeClawbot.cjs"
     },

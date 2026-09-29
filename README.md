@@ -522,6 +522,15 @@ npm run clear-sessions -- email user@example.com   # 删除指定账户会话
 npm run clear-sessions -- all           # 删除全部会话
 ```
 
+也可以用 `manual-login` 命令手动登录指定账户：它会打开有界面的浏览器（不走自动登录流程），你手动完成微软登录后，脚本检测到浏览器在 `rewards.bing.com` 停留 5 秒即自动保存会话并关闭浏览器：
+
+```bash
+npm run manual-login -- --email user@example.com                # 创建/刷新移动端会话
+npm run manual-login -- --email user@example.com --platform desktop   # 仅桌面端会话
+npm run manual-login -- --email user@example.com --platform both      # 桌面+移动依次创建
+npm run manual-login -- --email user@example.com --fresh        # 忽略已有 cookie 全新登录
+```
+
 </details>
 
 <details>
