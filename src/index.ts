@@ -771,6 +771,36 @@ export class MicrosoftRewardsBot {
                 this.cookies.mobile = await initialContext.cookies()
                 this.fingerprintMobile = mobileSession.fingerprint
 
+                // 桌面会话预热：登录完立即保存并关闭，把需要人工批准的桌面登录
+                // 挪到运行开头（紧跟移动端批准之后）；后续桌面阶段从 SQLite 恢复会话，不再触发批准
+                const prewarmDesktop =
+                    this.config.prewarmDesktopLogin &&
+                    (this.config.workers.doPunchCards ||
+                        this.config.workers.doVisualSearch ||
+                        (this.config.workers.doDesktopSearch && !apiSearch))
+
+                if (prewarmDesktop) {
+                    try {
+                        await executionContext.run({ isMobile: false, account }, async () => {
+                            desktopSession = await this.createDesktopSession(account)
+                        })
+                        await closeDesktopSession()
+                        this.logger.info(
+                            'main',
+                            'FLOW',
+                            '桌面会话预热完成 | 后续桌面阶段将直接复用已保存会话'
+                        )
+                    } catch (error) {
+                        this.logger.warn(
+                            'main',
+                            'FLOW',
+                            `桌面会话预热失败，将在桌面阶段重试登录 | 原因=${
+                                error instanceof Error ? error.message : String(error)
+                            }`
+                        )
+                    }
+                }
+
                 if (fullApi) {
                     await closeMobileSession()
                     this.logger.info(

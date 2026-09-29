@@ -10,6 +10,7 @@ export interface Config {
     autoClaimPunchcardRewards: boolean
     contintueOnBotWarning: boolean
     skipNonPointTasks: boolean
+    prewarmDesktopLogin: boolean
     accountDelay: ConfigDelay
     workers: ConfigWorkers
     activities: ConfigActivities

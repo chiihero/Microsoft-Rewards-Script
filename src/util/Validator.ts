@@ -145,6 +145,7 @@ export const ConfigSchema = z.object({
     autoClaimPunchcardRewards: z.boolean(),
     contintueOnBotWarning: z.boolean().default(false),
     skipNonPointTasks: z.boolean().default(true),
+    prewarmDesktopLogin: z.boolean().default(false),
     accountDelay: DelaySchema.default({ min: '1min', max: '3min' }),
     workers: z.object({
         doDailySet: z.boolean(),
@@ -296,6 +297,7 @@ const defaultConfig: Config = {
     autoClaimPunchcardRewards: false,
     contintueOnBotWarning: false,
     skipNonPointTasks: true,
+    prewarmDesktopLogin: false,
     accountDelay: { min: '1min', max: '3min' },
     workers: {
         doDailySet: true,

@@ -8,6 +8,7 @@
     "autoClaimPunchcardRewards": false,
     "contintueOnBotWarning": false,
     "skipNonPointTasks": true,
+    "prewarmDesktopLogin": false,
     "accountDelay": {
         "min": "1min",
         "max": "3min"

@@ -278,6 +278,7 @@ docker compose restart          # 重启（不重建）
 | `ensureStreakProtection`    | 确保连击保护已开启                  | `true`          | `CONFIG_ENSURE_STREAK_PROTECTION`     |
 | `autoClaimPunchcardRewards` | 自动领取已完成的打卡奖励            | `false`         | `CONFIG_AUTO_CLAIM_PUNCHCARD_REWARDS` |
 | `skipNonPointTasks`         | 跳过无积分奖励的任务                | `true`          | `CONFIG_SKIP_NON_POINT_TASKS`         |
+| `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话 | `false` | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
 | `accountDelay.min` / `.max` | 下一账户开始前的延迟                | `1min` - `3min` | `CONFIG_ACCOUNT_DELAY_MIN` / `_MAX`   |
 | `searchOnBingLocalQueries`  | ExploreOnBing 活动使用本地词库      | `false`         | `CONFIG_SEARCH_ON_BING_LOCAL`         |
 | `globalTimeout`             | 所有操作的超时时间                  | `30sec`         | `CONFIG_GLOBAL_TIMEOUT`               |
