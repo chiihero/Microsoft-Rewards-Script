@@ -532,6 +532,14 @@ npm run manual-login -- --email user@example.com --platform both      # 桌面+�
 npm run manual-login -- --email user@example.com --fresh        # 忽略已有 cookie 全新登录
 ```
 
+**需要手机 Authenticator 批准登录的账户**，桌面端会话失效时第二次批准会出现在运行后段（几小时后），容易错过。开启 `"prewarmDesktopLogin": true` 后，桌面端登录会提前到移动端登录完成后立刻执行并保存会话（两次批准集中在运行开头几分钟内），后续桌面任务直接复用会话不再触发批准：
+
+```json
+{
+    "prewarmDesktopLogin": true
+}
+```
+
 </details>
 
 <details>
