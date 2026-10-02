@@ -82,6 +82,7 @@
 
 - ✅ PushPlus 微信推送（国内推荐，无需翻墙）
 - ✅ Server酱 微信推送（Turbo 版，扫码获取 SendKey 即用）
+- ✅ 企业微信群机器人推送（群机器人 Webhook，无需第三方服务）
 - ✅ 微信 ClawBot 推送（腾讯官方 iLink 直连，免费无第三方服务）
 - ✅ Discord / Telegram / ntfy 推送
 - ✅ 全面日志记录（日志过滤 + 落盘 `logs/` 按天分文件，自动清理 90 天前旧日志）
@@ -213,7 +214,7 @@ ACCOUNT_1_PASSWORD=your_password
 - `RUN_ON_START`：容器启动时是否立即跑一次（默认 `true`）
 - `CONFIG_SEARCH_QUERY_ENGINES`：查询源，国内推荐 `china,local`
 - `CONFIG_CHINA_API_APPKEY`：gmya.net appkey，解除免费档限流（留空走免费档）
-- `CONFIG_PUSHPLUS_*` / `CONFIG_SERVERCHAN_*` / `CONFIG_CLAWBOT_*`：微信推送
+- `CONFIG_PUSHPLUS_*` / `CONFIG_SERVERCHAN_*` / `CONFIG_QYWXBOT_*` / `CONFIG_CLAWBOT_*`：微信推送
 
 > 完整的 `CONFIG_*` 环境变量列表见[配置参考](#️-配置参考)各表格。`CONFIG_*` 每次启动都会覆盖 `./config/config.json`。
 
@@ -472,10 +473,12 @@ docker compose restart          # 重启（不重建）
 | `webhook.ntfy.enabled` / `.url` / `.topic` / `.token` 等                    | ntfy 推送                                       | `false` | `CONFIG_NTFY_*`                                     |
 | `webhook.pushplus.enabled` / `.token` / `.title` / `.template` / `.channel` | PushPlus 微信推送                               | `false` | `CONFIG_PUSHPLUS_*`                                 |
 | `webhook.serverchan.enabled` / `.sendKey` / `.title`                        | Server酱 微信推送（Turbo）                      | `false` | `CONFIG_SERVERCHAN_ENABLED` / `_SENDKEY` / `_TITLE` |
+| `webhook.qywxbot.enabled` / `.sendKey`                                      | 企业微信群机器人推送                            | `false` | `CONFIG_QYWXBOT_ENABLED` / `_SENDKEY`               |
 | `webhook.clawbot.enabled` / `.authFile`                                     | 微信 ClawBot 推送                               | `false` | `CONFIG_CLAWBOT_ENABLED` / `_AUTHFILE`              |
 | `webhook.webhookLogFilter.*`                                                | Webhook 逐条日志过滤（结构同 consoleLogFilter） | `false` | `CONFIG_WEBHOOK_LOG_FILTER_*`                       |
 
-> 💡 **国内推荐**：**PushPlus** 或 **微信 ClawBot**（均直达微信，无需翻墙）。Discord / Telegram / ntfy 需要能访问对应服务。
+> 💡 **国内推荐**：**PushPlus**、**Server酱**、**企业微信群机器人** 或 **微信 ClawBot**（均直达微信，无需翻墙）。Discord / Telegram / ntfy 需要能访问对应服务。
+> 企业微信群机器人的 `sendKey` 取群机器人 Webhook 地址中 `?key=` 后面那段（群设置 → 群机器人 → 添加机器人）。
 > 运行结束的中文积分摘要会一次性推送（不逐条推日志）。
 
 <details>
