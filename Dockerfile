@@ -86,6 +86,8 @@ COPY --from=builder /usr/src/microsoft-rewards-script/node_modules ./node_module
 
 # Install patchright's stealth-patched Chromium headless shell.
 # The container is headless-only so the full browser isn't needed; then clean up
+# chromium 二进制走 npmmirror 国内镜像（cdn.playwright.dev 国内直连极慢，2026-11 实测 114MB 约 10 分钟）
+ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
 RUN set -eux; \
     npx patchright install --with-deps --only-shell chromium; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
