@@ -90,6 +90,7 @@ export class ActivateSearchPerk extends BaseActivity {
             'ACTIVATE-SEARCH-PERK',
             `正在激活 ${perk.multiplier}x 搜索加成 | offerId=${perk.offerId} | geo=${this.bot.userData.geoLocale}`
         )
+        this.markExecuted()
 
         try {
             const { status, acknowledged } = await this.bot.browser.func.reportServerAction(actionId, [

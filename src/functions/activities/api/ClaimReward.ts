@@ -31,6 +31,7 @@ export class ClaimReward extends BaseActivity {
 
         try {
             const questUrl = URLs.rewards.quest(parentId)
+            this.markExecuted()
             const { status, acknowledged } = await this.bot.browser.func.reportServerAction(
                 actionId,
                 [

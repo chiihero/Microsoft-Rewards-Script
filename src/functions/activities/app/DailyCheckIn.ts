@@ -31,6 +31,7 @@ export class DailyCheckIn extends BaseActivity {
             'DAILY-CHECK-IN',
             `开始每日签到 | geo=${this.bot.userData.geoLocale} | currentBalance=${this.oldBalance} | state=${before.status} | expected=${before.remaining ?? '未知'}`
         )
+        this.markExecuted()
 
         try {
             const response = await this.submitDaily()

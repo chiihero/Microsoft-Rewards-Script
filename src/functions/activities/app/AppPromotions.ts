@@ -22,6 +22,7 @@ export class AppPromotions extends BaseActivity {
             'APP-PROMOTIONS',
             `开始解决"应用推广"项目 | remaining=${pending.length}`
         )
+        this.markExecuted()
         for (const [index, promotion] of pending.entries()) {
             await this.bot.activities.doAppReward(promotion)
             if (index < pending.length - 1) {

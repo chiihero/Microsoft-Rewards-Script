@@ -68,7 +68,6 @@ export class PunchCards extends BaseActivity {
             'PUNCHCARD',
             `发现 ${pending.length} 个未完成任务 | apiMatched=${pending.filter(parent => apiById.has(parent.offerId)).length}`
         )
-
         for (const parent of pending) {
             try {
                 await this.solvePunchCard(parent, apiById.get(parent.offerId))
@@ -187,9 +186,14 @@ export class PunchCards extends BaseActivity {
                     )
                     continue
                 }
-                await this.bot.activities.doClaimReward(child, parentId)
-            } else {
-                await this.reportQuestChild(child, parentId)
+                if (!(await this.bot.activities.doClaimReward(child, parentId))) {
+                    remaining += 1
+                    continue
+                }
+                this.markExecuted()
+            } else if (!(await this.reportQuestChild(child, parentId))) {
+                remaining += 1
+                continue
             }
 
             reported += 1
@@ -233,20 +237,21 @@ export class PunchCards extends BaseActivity {
         }
     }
 
-    private async reportQuestChild(child: QuestChild, parentId: string): Promise<void> {
+    private async reportQuestChild(child: QuestChild, parentId: string): Promise<boolean> {
         const actionId = this.bot.nextActions.reportActivity
         if (!actionId) {
             this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `跳过 ${child.offerId}：未发现 "reportActivity"`)
-            return
+            return false
         }
         if (!child.hash) {
             this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `跳过 ${child.offerId}：没有有效的 hash`)
-            return
+            return false
         }
 
         const oldBalance = this.bot.userData.currentPoints
         try {
             const questUrl = URLs.rewards.quest(parentId)
+            this.markExecuted()
             const { status, acknowledged } = await this.bot.browser.func.reportServerAction(
                 actionId,
                 [
@@ -288,6 +293,7 @@ export class PunchCards extends BaseActivity {
                 }`
             )
         }
+        return true
     }
 
     private isSearchQuotaChild(offerId: string, promotion?: BasePromotion): boolean {

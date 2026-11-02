@@ -2,10 +2,11 @@ import { BaseActivity } from '../BaseActivity'
 import type { BasePromotion } from '../../../interface/DashboardData'
 
 export class PromotionActivityRunner extends BaseActivity {
-    public async run(promotions: BasePromotion[]): Promise<void> {
+    public async run(promotions: BasePromotion[]): Promise<boolean> {
         for (const [index, promotion] of promotions.entries()) {
             try {
-                await this.runPromotion(promotion)
+                if (!(await this.runPromotion(promotion))) continue
+                this.markExecuted()
                 if (index < promotions.length - 1) {
                     await this.bot.utils.wait(this.bot.utils.randomDelay(15000, 60000))
                 }
@@ -19,9 +20,10 @@ export class PromotionActivityRunner extends BaseActivity {
                 )
             }
         }
+        return this.didExecute()
     }
 
-    private async runPromotion(promotion: BasePromotion): Promise<void> {
+    private async runPromotion(promotion: BasePromotion): Promise<boolean> {
         const type = promotion.promotionType?.toLowerCase() ?? ''
         const name = promotion.name?.toLowerCase() ?? ''
         const offerId = promotion.offerId
@@ -38,17 +40,17 @@ export class PromotionActivityRunner extends BaseActivity {
                 'ACTIVITY',
                 `跳过活动 "${promotion.title}" | offerId=${offerId} | 原因：不支持的类型 "${promotion.promotionType}"`
             )
-            return
+            return false
         }
 
         const isSearchOnBing = name.includes('exploreonbing')
         if (isSearchOnBing && !this.bot.config.activities.searchOnBing) {
             this.logDisabled('SearchOnBing', offerId)
-            return
+            return false
         }
         if (!isSearchOnBing && !this.bot.config.activities.urlReward) {
             this.logDisabled('UrlReward', offerId)
-            return
+            return false
         }
 
         if (isSearchOnBing) {
@@ -58,8 +60,7 @@ export class PromotionActivityRunner extends BaseActivity {
                 `发现活动类型 "SearchOnBing" | 标题="${promotion.title}" | offerId=${offerId}`
             )
             const page = this.bot.isMobile ? this.bot.mainMobilePage : this.bot.mainDesktopPage
-            await this.bot.activities.doSearchOnBing(promotion, page)
-            return
+            return this.bot.activities.doSearchOnBing(promotion, page)
         }
 
         this.bot.logger.info(
@@ -67,7 +68,7 @@ export class PromotionActivityRunner extends BaseActivity {
             'ACTIVITY',
             `发现活动类型 "UrlReward" | 标题="${promotion.title}" | offerId=${offerId}`
         )
-        await this.bot.activities.doUrlReward(promotion)
+        return this.bot.activities.doUrlReward(promotion)
     }
 
     private logDisabled(activity: string, offerId: string): void {

@@ -58,6 +58,7 @@ export class UrlReward extends BaseActivity {
         )
 
         try {
+            this.markExecuted()
             const { status, acknowledged, availablePoints } = await this.bot.browser.func.reportServerAction(
                 actionId,
                 [

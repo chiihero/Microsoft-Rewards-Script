@@ -710,11 +710,12 @@ export class MicrosoftRewardsBot {
             this.config.workers.doReadToEarn
         const needsAppAccessToken = this.config.experimental.edgeBrowsing || needsAppActivities
         let checkInError: string | undefined
-        const runDailyCheckIn = async (): Promise<void> => {
+        const runDailyCheckIn = async (): Promise<boolean> => {
             try {
-                await this.activities.doDailyCheckIn()
+                return await this.activities.doDailyCheckIn()
             } catch (error) {
                 checkInError = error instanceof Error ? error.message : String(error)
+                return false
             }
         }
 
@@ -936,12 +937,10 @@ export class MicrosoftRewardsBot {
                         await this.activities.doEnsureStreakProtection()
                     }
                     if (this.config.workers.doPunchCards) {
-                        await this.activities.doPunchCardsMobile(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doPunchCardsMobile(data)) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doActivateSearchPerk) {
-                        await this.activities.doActivateSearchPerk(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doActivateSearchPerk(data)) await this.gapBetweenWorkers()
                     }
 
                     const plan = await this.searchManager.getSearchPoints()
@@ -965,24 +964,19 @@ export class MicrosoftRewardsBot {
                     }
 
                     if (this.config.workers.doDailySet) {
-                        await this.activities.doDailySet(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doDailySet(data)) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doMorePromotions) {
-                        await this.activities.doMorePromotions(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doMorePromotions(data)) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doDailyCheckIn) {
-                        await runDailyCheckIn()
-                        await this.gapBetweenWorkers()
+                        if (await runDailyCheckIn()) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doAppPromotions && appData) {
-                        await this.activities.doAppPromotions(appData)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doAppPromotions(appData)) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doReadToEarn) {
-                        await this.activities.doReadToEarn()
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doReadToEarn()) await this.gapBetweenWorkers()
                     }
 
                     if (doMobileSearch) mobilePoints = await this.searchManager.searchMobile(account)
@@ -993,32 +987,25 @@ export class MicrosoftRewardsBot {
                         await this.activities.doEnsureStreakProtection()
                     }
                     if (this.config.workers.doDailySet) {
-                        await this.activities.doDailySet(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doDailySet(data)) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doActivateSearchPerk) {
-                        await this.activities.doActivateSearchPerk(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doActivateSearchPerk(data)) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doMorePromotions) {
-                        await this.activities.doMorePromotions(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doMorePromotions(data)) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doDailyCheckIn) {
-                        await runDailyCheckIn()
-                        await this.gapBetweenWorkers()
+                        if (await runDailyCheckIn()) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doAppPromotions && appData) {
-                        await this.activities.doAppPromotions(appData)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doAppPromotions(appData)) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doReadToEarn) {
-                        await this.activities.doReadToEarn()
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doReadToEarn()) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doPunchCards) {
-                        await this.activities.doPunchCardsMobile(data)
-                        await this.gapBetweenWorkers()
+                        if (await this.activities.doPunchCardsMobile(data)) await this.gapBetweenWorkers()
                     }
 
                     const plan = await this.searchManager.getSearchPoints()
@@ -1095,7 +1082,7 @@ export class MicrosoftRewardsBot {
                 )
 
                 if (this.config.workers.doClaimBonusPoints) {
-                    await this.gapBetweenWorkers()
+                    if (this.nextActions.reportClaimAllPoints) await this.gapBetweenWorkers()
                     await this.activities.doClaimBonusPoints()
                 }
 

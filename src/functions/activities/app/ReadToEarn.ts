@@ -21,6 +21,7 @@ export class ReadToEarn extends BaseActivity {
             'READ-TO-EARN',
             `开始读文赚积分 | geo=${this.bot.userData.geoLocale} | delayRange=${delayMin}-${delayMax} | currentBalance=${startBalance}`
         )
+        this.markExecuted()
 
         try {
             const jsonData = {

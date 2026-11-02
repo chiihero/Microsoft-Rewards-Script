@@ -10,7 +10,11 @@ interface ActivityQueries {
     queries: string[]
 }
 
-export async function activateSearchOnBing(bot: MicrosoftRewardsBot, promotion: BasePromotion): Promise<boolean> {
+export async function activateSearchOnBing(
+    bot: MicrosoftRewardsBot,
+    promotion: BasePromotion,
+    onSubmit?: () => void
+): Promise<boolean> {
     const offerId = promotion.offerId
     const actionId = bot.nextActions.reportActivity
 
@@ -27,6 +31,7 @@ export async function activateSearchOnBing(bot: MicrosoftRewardsBot, promotion: 
     }
 
     try {
+        onSubmit?.()
         const { status, acknowledged } = await bot.browser.func.reportServerAction(actionId, [
             hash,
             11,
