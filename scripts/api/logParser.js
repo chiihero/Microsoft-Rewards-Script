@@ -106,8 +106,9 @@ const RE = {
     searchSummary: /^搜索汇总 \| 移动端=(-?\d+) \| 桌面端=(-?\d+) \| 额外=(-?\d+) \| 总计=(-?\d+)/,
     streakProtection:
         /^快照完成 \| offers=(\d+) \| 可上报=(\d+) \| streaks=(\d+) \| 连续保护已启用=(true|false|null) \| 连续保护剩余天数=(\d+|null) \| 连续计数=(\d+|null) \| 等级=([^|]+) \| 账户=(\S+@\S+)$/,
-    accountEnd: /^账户完成: (\S+) \| 获得积分=(-?\d+) \| 原余额=(\d+) \| 现余额=(\d+) \| 持续秒数=([\d.]+)/,
-    runEnd: /^全部账户完成 \| 处理账户数=(\d+) \| 获得积分=(-?\d+) \| 原余额=(\d+) \| 现余额=(\d+) \| 运行分钟数=([\d.]+)/,
+    accountEnd:
+        /^账户(?:完成|存在失败活动): (\S+) \| 获得积分=(-?\d+) \| 原余额=(\d+) \| 现余额=(\d+) \| 持续秒数=([\d.]+)/,
+    runEnd: /^(?:全部账户完成|账户处理结束，存在失败活动) \| 处理账户数=(\d+) \| 获得积分=(-?\d+) \| 原余额=(\d+) \| 现余额=(\d+) \| 运行分钟数=([\d.]+)/,
     accountError: /^(\S+@\S+) \| 错误=([\s\S]+)$/,
     flowFailed: /(\S+@\S+) 的.*流程失败:/i,
     accountDelay: /^等待 ([\d.]+) 秒后开始下一个账户(?: \((\S+@\S+)\))?$/,
@@ -462,7 +463,7 @@ export function applyLogToRunState(state, entry) {
                     acc.initialPoints = Number(m[3])
                     acc.finalPoints = Number(m[4])
                     acc.durationSeconds = Number(m[5])
-                    acc.success = true
+                    acc.success = !msg.startsWith('账户存在失败活动:')
                     acc.live.gained = Number(m[2])
                     acc.live.balance = Number(m[4])
                     const at = eventTime(entry)

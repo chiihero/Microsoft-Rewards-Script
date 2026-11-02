@@ -60,6 +60,7 @@ interface AccountRunResult {
     initialPoints: number
     collectedPoints: number
     skippedForBotWarning?: boolean
+    error?: string
 }
 
 const executionContext = new AsyncLocalStorage<ExecutionContext>()
@@ -369,6 +370,7 @@ export class MicrosoftRewardsBot {
             )
 
             if (this.activeWorkers <= 0) {
+                hadWorkerFailure ||= allAccountStats.some(stat => !stat.success)
                 const totalCollectedPoints = allAccountStats.reduce((sum, s) => sum + s.collectedPoints, 0)
                 const totalInitialPoints = allAccountStats.reduce((sum, s) => sum + s.initialPoints, 0)
                 const totalFinalPoints = allAccountStats.reduce((sum, s) => sum + s.finalPoints, 0)
@@ -377,8 +379,8 @@ export class MicrosoftRewardsBot {
                 this.logger.info(
                     'main',
                     'RUN-END',
-                    `全部账户完成 | 处理账户数=${allAccountStats.length} | 获得积分=${totalCollectedPoints} | 原余额=${totalInitialPoints} | 现余额=${totalFinalPoints} | 运行分钟数=${totalDurationMinutes}`,
-                    'green'
+                    `${hadWorkerFailure ? '账户处理结束，存在失败活动' : '全部账户完成'} | 处理账户数=${allAccountStats.length} | 获得积分=${totalCollectedPoints} | 原余额=${totalInitialPoints} | 现余额=${totalFinalPoints} | 运行分钟数=${totalDurationMinutes}`,
+                    hadWorkerFailure ? 'red' : 'green'
                 )
 
                 await this.sendPushPlusSummary(allAccountStats, runStartTime, hadWorkerFailure)
@@ -419,7 +421,7 @@ export class MicrosoftRewardsBot {
                 }
 
                 await flushAllWebhooks()
-                process.exit(0)
+                process.exit(stats.some(stat => !stat.success) ? 1 : 0)
             } catch (error) {
                 this.logger.error(
                     'main',
@@ -576,14 +578,15 @@ export class MicrosoftRewardsBot {
                             finalPoints: accountFinalPoints,
                             collectedPoints: collectedPoints,
                             duration: parseFloat(durationSeconds),
-                            success: true
+                            success: !result.error,
+                            error: result.error
                         })
 
                         this.logger.info(
                             'main',
                             'ACCOUNT-END',
-                            `账户完成: ${accountEmail} | 获得积分=${collectedPoints} | 原余额=${accountInitialPoints} | 现余额=${accountFinalPoints} | 持续秒数=${durationSeconds}`,
-                            'green'
+                            `账户${result.error ? '存在失败活动' : '完成'}: ${accountEmail} | 获得积分=${collectedPoints} | 原余额=${accountInitialPoints} | 现余额=${accountFinalPoints} | 持续秒数=${durationSeconds}`,
+                            result.error ? 'red' : 'green'
                         )
                     }
                 } else {
@@ -623,6 +626,7 @@ export class MicrosoftRewardsBot {
         }
 
         if (this.config.clusters <= 1 && cluster.isPrimary) {
+            const hadFailure = accountStats.some(s => !s.success)
             const totalCollectedPoints = accountStats.reduce((sum, s) => sum + s.collectedPoints, 0)
             const totalInitialPoints = accountStats.reduce((sum, s) => sum + s.initialPoints, 0)
             const totalFinalPoints = accountStats.reduce((sum, s) => sum + s.finalPoints, 0)
@@ -631,18 +635,17 @@ export class MicrosoftRewardsBot {
             this.logger.info(
                 'main',
                 'RUN-END',
-                `全部账户完成 | 处理账户数=${accountStats.length} | 获得积分=${totalCollectedPoints} | 原余额=${totalInitialPoints} | 现余额=${totalFinalPoints} | 运行分钟数=${totalDurationMinutes}`,
-                'green'
+                `${hadFailure ? '账户处理结束，存在失败活动' : '全部账户完成'} | 处理账户数=${accountStats.length} | 获得积分=${totalCollectedPoints} | 原余额=${totalInitialPoints} | 现余额=${totalFinalPoints} | 运行分钟数=${totalDurationMinutes}`,
+                hadFailure ? 'red' : 'green'
             )
 
-            const hadFailure = accountStats.some(s => !s.success)
             await this.sendPushPlusSummary(accountStats, runStartTime, hadFailure)
             await this.sendServerChanSummary(accountStats, runStartTime, hadFailure)
             await this.sendClawBotSummary(accountStats, runStartTime, hadFailure)
             await flushAllWebhooks()
 
             if (!hadFailure) markRunSucceeded()
-            process.exit(0)
+            process.exit(hadFailure ? 1 : 0)
         }
 
         return accountStats
@@ -706,6 +709,14 @@ export class MicrosoftRewardsBot {
             this.config.workers.doAppPromotions ||
             this.config.workers.doReadToEarn
         const needsAppAccessToken = this.config.experimental.edgeBrowsing || needsAppActivities
+        let checkInError: string | undefined
+        const runDailyCheckIn = async (): Promise<void> => {
+            try {
+                await this.activities.doDailyCheckIn()
+            } catch (error) {
+                checkInError = error instanceof Error ? error.message : String(error)
+            }
+        }
 
         let mobileSession: BrowserSession | null = null
         let desktopSession: BrowserSession | null = null
@@ -894,7 +905,7 @@ export class MicrosoftRewardsBot {
                     'POINTS',
                     `今日可赚取 | 移动端: ${browserEarnable.mobileSearchPoints ?? '未提供'} | 浏览器: ${
                         browserEarnable.desktopSearchPoints ?? '未提供'
-                    } | App: ${appEarnable?.totalEarnablePoints ?? 0} | ${accountEmail} | locale: ${this.accountLocale.locale}`
+                    } | App: ${appEarnable?.totalEarnablePoints ?? '未知'} | ${accountEmail} | locale: ${this.accountLocale.locale}`
                 )
 
                 const parallel = this.config.searchSettings.parallelSearching
@@ -962,7 +973,7 @@ export class MicrosoftRewardsBot {
                         await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doDailyCheckIn) {
-                        await this.activities.doDailyCheckIn()
+                        await runDailyCheckIn()
                         await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doAppPromotions && appData) {
@@ -994,7 +1005,7 @@ export class MicrosoftRewardsBot {
                         await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doDailyCheckIn) {
-                        await this.activities.doDailyCheckIn()
+                        await runDailyCheckIn()
                         await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doAppPromotions && appData) {
@@ -1107,7 +1118,8 @@ export class MicrosoftRewardsBot {
 
                 return {
                     initialPoints,
-                    collectedPoints: collectedPoints || 0
+                    collectedPoints: collectedPoints || 0,
+                    error: checkInError
                 }
             })
         } finally {

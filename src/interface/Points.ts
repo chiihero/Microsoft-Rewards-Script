@@ -8,8 +8,8 @@ export interface BrowserEarnablePoints {
 
 export interface AppEarnablePoints {
     readToEarn: number
-    checkIn: number
-    totalEarnablePoints: number
+    checkIn: number | null
+    totalEarnablePoints: number | null
 }
 
 export interface MissingSearchPoints {
