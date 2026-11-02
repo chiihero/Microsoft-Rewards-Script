@@ -2,27 +2,27 @@
 
 # 微软奖励脚本（V4-china）
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](./package.json)
+[![Version](https://img.shields.io/badge/version-4.3.2.4-blue.svg)](./package.json)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-green.svg)](./package.json)
-[![Last Sync](https://img.shields.io/badge/最后同步-2026--08--16-orange.svg)](#-同步与致谢)
+[![Last Sync](https://img.shields.io/badge/最后同步-2026--09--29-orange.svg)](#-同步与致谢)
 [![Upstream](https://img.shields.io/badge/上游-TheNetsky/Microsoft--Rewards--Script-informational.svg)](https://github.com/TheNetsky/Microsoft-Rewards-Script)
 
 **基于 TypeScript · Patchright(Playwright) 的新一代架构 · 微软奖励自动化脚本**
 
-针对国内用户深度本地化：✅ 中国热搜查询源（百度/头条/抖音/微博/知乎） · ✅ 日志中文化 · ✅ PushPlus / 微信 ClawBot 推送 · ✅ Docker 镜像加速
+针对国内用户深度本地化：✅ 中国热搜查询源（百度/头条/抖音/微博/知乎） · ✅ 日志中文化 · ✅ PushPlus / 微信 ClawBot 推送 · ✅ Chromium 下载走国内镜像源
 
 </div>
 
 > ℹ️ **分支选择建议**
 >
-> - **`main` 分支（v3，稳定版）**：已兼容微软新版 UI，实测未发现明显异常，可放心日常使用。
-> - **`V4-china` 分支（v4 新架构，基本可用，本分支）**：搜索、活动、签到、Read-to-Earn、微信推送（PushPlus / ClawBot）等核心功能已实测通过（2026-08），**可以切换日常使用**；新架构仍在迭代，偶发小问题属正常，追求稳定可继续留在 `main` 分支。
+> - **`V4-china` 分支（本分支，默认主力）**：v4 新架构 + 国内本地化，搜索、活动、签到、Read-to-Earn、微信推送（PushPlus / ClawBot）等核心功能实测稳定运行中，**新用户直接用这个**。
+> - **`v3` 分支（旧版存档）**：v3 老架构，仅建议还在用旧版 Bing Rewards 面板、或 v3 老配置不想迁移的用户继续使用。
 >
 > 两分支配置文件结构不同，**互不兼容**；本分支账号改用 `.env` 环境变量配置（不再使用 `accounts.json`），从 v3 迁移请按本文档重新配置 `.env` / `config.json`。
 
 > [!TIP]
-> 本分支仅支持**新版（modern）Bing Rewards 面板**，不支持旧版面板。账户还在旧版面板的请使用本仓库 [`main` 分支](https://github.com/chiihero/Microsoft-Rewards-Script/tree/main)（v3）。
+> 本分支仅支持**新版（modern）Bing Rewards 面板**，不支持旧版面板。账户还在旧版面板的请使用本仓库 [`v3` 分支](https://github.com/chiihero/Microsoft-Rewards-Script/tree/v3)。
 
 ---
 
@@ -61,6 +61,8 @@
 - ✅ 可配置任务开关
 - ✅ 控制 API + Web 面板（启动/停止/日志/积分/调度管理）
 - ✅ 自动调度（Docker 内置 cron）
+- ✅ 每日签到防重复与失败隔离（签到出错不中断后续任务，状态如实计入汇总）
+- ✅ 空任务阶段自动跳过等待（子任务全部已完成时不再空等 1–4 分钟）
 
 **搜索与活动**
 
@@ -107,7 +109,7 @@
 
 ## 📦 Windows 部署
 
-> ⚠️ 本项目所有改动基于 Win11 系统测试，其他系统请参考[原项目](https://github.com/TheNetsky/Microsoft-Rewards-Script)相关配置。
+> ⚠️ 本项目所有改动基于 Win11 与 Docker（Linux 容器）实测，其他系统请参考[原项目](https://github.com/TheNetsky/Microsoft-Rewards-Script)相关配置。
 
 <details>
 <summary><b>🔧 自动设置（推荐，一键部署）</b></summary>
@@ -279,7 +281,7 @@ docker compose restart          # 重启（不重建）
 | `autoClaimPunchcardRewards` | 自动领取已完成的打卡奖励                                                                                                                                                                                                  | `false`         | `CONFIG_AUTO_CLAIM_PUNCHCARD_REWARDS` |
 | `contintueOnBotWarning`     | 账户收到机器人评分警告（Fraud_UserWarning_BotScore_UX）时仍继续运行；默认跳过该账户并建议暂停几天（不推荐开启。键名为上游历史拼写，保留以兼容）                                                                           | `false`         | `CONFIG_CONTINTUE_ON_BOT_WARNING`     |
 | `skipNonPointTasks`         | 跳过无积分奖励的任务                                                                                                                                                                                                      | `true`          | `CONFIG_SKIP_NON_POINT_TASKS`         |
-| `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话                                                                                                        | `false`         | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
+| `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话；预热失败时自动跳过本轮桌面阶段，移动端任务照常                                                        | `false`         | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
 | `accountDelay.min` / `.max` | 下一账户开始前的延迟                                                                                                                                                                                                      | `1min` - `3min` | `CONFIG_ACCOUNT_DELAY_MIN` / `_MAX`   |
 | `searchOnBingLocalQueries`  | ExploreOnBing 活动使用本地词库                                                                                                                                                                                            | `false`         | `CONFIG_SEARCH_ON_BING_LOCAL`         |
 | `globalTimeout`             | 所有操作的超时时间                                                                                                                                                                                                        | `30sec`         | `CONFIG_GLOBAL_TIMEOUT`               |
@@ -552,6 +554,13 @@ npm run manual-login -- --email user@example.com --fresh        # 忽略已有 c
 </details>
 
 <details>
+<summary><b>改了 <code>config/schedule.json</code> 为什么不生效？</b></summary>
+
+`config/schedule.json` 只在 `API_MODE=true` 时才会被读取（面板/API 改调度也写回这个文件）。普通模式只认 `compose.yaml` 里的 `CRON_SCHEDULE` 环境变量，改完 `docker compose up -d` 重建容器生效。
+
+</details>
+
+<details>
 <summary><b>Docker 改了配置为什么不生效？</b></summary>
 
 改完 `compose.yaml` 或代码后，必须加 `--build` 重建镜像：
@@ -612,18 +621,20 @@ gmya.net 免费档对连续请求有频率限制。解决方法：
 - PushPlus / 微信 ClawBot 微信推送渠道
 - 国内默认值调优（china+local 引擎、搜索间隔 6-12min、防风控默认项）
 - 中文词库（`search-queries.json`）与全量日志中文化
-- Docker 基础镜像走 m.daocloud.io 加速；浏览器版本接口不可达时自动回退内置版本
+- Docker 基础镜像走官方 Docker Hub（daocloud 镜像源 2026-09 起匿名拉取 401 已回退）；chromium 下载走 npmmirror 国内镜像；浏览器版本接口不可达时自动回退内置版本
+
+> 📌 **上游现状**：上游 v4 分支已冻结（最后提交 2026-09-01），主力开发已转向 v5（2026-10-31 发布 v5.0.0，大规模重构，配置与目录结构不兼容）。本分支继续基于 v4 维护国内特性，暂不跟进 v5。
 
 若有侵权请联系删除。
 
-**本项目所有改动基于 Win11 系统测试。其他系统未测试，请根据原项目相关配置设置。**
+**本项目所有改动基于 Win11 与 Docker（Linux 容器）实测。其他系统未测试，请根据原项目相关配置设置。**
 
 | 项目         | 信息                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------- |
 | 上游仓库     | [TheNetsky/Microsoft-Rewards-Script](https://github.com/TheNetsky/Microsoft-Rewards-Script)（v4 分支）    |
 | 本仓库       | [chiihero/Microsoft-Rewards-Script](https://github.com/chiihero/Microsoft-Rewards-Script) `V4-china` 分支 |
-| 当前版本     | 4.3.0                                                                                                     |
-| 最后同步上游 | 2026-08-16                                                                                                |
+| 当前版本     | 4.3.2.4                                                                                                   |
+| 最后同步上游 | 2026-09-29                                                                                                |
 
 ---
 
