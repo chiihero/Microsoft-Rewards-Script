@@ -773,6 +773,8 @@ export class MicrosoftRewardsBot {
 
                 // 桌面会话预热：登录完立即保存并关闭，把需要人工批准的桌面登录
                 // 挪到运行开头（紧跟移动端批准之后）；后续桌面阶段从 SQLite 恢复会话，不再触发批准
+                // 预热失败（如批准超时无人处理）时置位，后续桌面阶段整体跳过，移动端任务照常跑完
+                let desktopPrewarmFailed = false
                 const prewarmDesktop =
                     this.config.prewarmDesktopLogin &&
                     (this.config.workers.doPunchCards ||
@@ -791,10 +793,11 @@ export class MicrosoftRewardsBot {
                             '桌面会话预热完成 | 后续桌面阶段将直接复用已保存会话'
                         )
                     } catch (error) {
+                        desktopPrewarmFailed = true
                         this.logger.warn(
                             'main',
                             'FLOW',
-                            `桌面会话预热失败，将在桌面阶段重试登录 | 原因=${
+                            `桌面会话预热失败，本轮跳过桌面阶段，移动端任务继续 | 原因=${
                                 error instanceof Error ? error.message : String(error)
                             }`
                         )
@@ -952,7 +955,8 @@ export class MicrosoftRewardsBot {
                     const plan = await this.searchManager.getSearchPoints()
                     const doMobileSearch = plan.doMobile
                     const doDesktopSearch = plan.doDesktop
-                    const desktopBrowserNeeded = this.config.workers.doPunchCards || doVisualSearch
+                    const desktopBrowserNeeded =
+                        (this.config.workers.doPunchCards || doVisualSearch) && !desktopPrewarmFailed
 
                     if (doDesktopSearch && !desktopBrowserNeeded) {
                         this.cookies.desktop = [...this.cookies.mobile]
@@ -1030,14 +1034,15 @@ export class MicrosoftRewardsBot {
                     const doDesktopSearch = plan.doDesktop
 
                     const desktopBrowserNeeded =
-                        this.config.workers.doPunchCards || doVisualSearch || (doDesktopSearch && !apiSearch)
+                        (this.config.workers.doPunchCards || doVisualSearch || (doDesktopSearch && !apiSearch)) &&
+                        !desktopPrewarmFailed
 
                     if (apiSearch && doDesktopSearch && !desktopBrowserNeeded) {
                         this.cookies.desktop = [...this.cookies.mobile]
                         this.fingerprintDesktop = await this.browserFactory.generateFingerprint(false)
                     }
 
-                    if (parallel && !apiSearch && doMobileSearch && doDesktopSearch) {
+                    if (parallel && !apiSearch && doMobileSearch && doDesktopSearch && !desktopPrewarmFailed) {
                         await executionContext.run({ isMobile: false, account }, async () => {
                             desktopSession = await this.createDesktopSession(account)
                             if (this.config.workers.doPunchCards) await this.activities.doPunchCardsDesktop()
