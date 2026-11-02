@@ -34,11 +34,7 @@ export class EnsureStreakProtection extends BaseActivity {
         }
 
         if (before && before.remainingDays === 0) {
-            this.bot.logger.info(
-                this.bot.isMobile,
-                'ENABLE-STREAK-PROTECTION',
-                '没有剩余的保护天数 - 开关已禁用，跳过'
-            )
+            this.bot.logger.info(this.bot.isMobile, 'ENABLE-STREAK-PROTECTION', '没有剩余的保护天数 - 开关已禁用，跳过')
             return
         }
 

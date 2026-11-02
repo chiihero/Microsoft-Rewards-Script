@@ -129,11 +129,7 @@ export class QueryCore {
                 if (!handler) continue
 
                 const topics = await Promise.resolve(handler())
-                this.bot.logger.debug(
-                    this.bot.isMobile,
-                    'QUERY-MANAGER',
-                    `源 "${source}" 返回 ${topics.length} 条`
-                )
+                this.bot.logger.debug(this.bot.isMobile, 'QUERY-MANAGER', `源 "${source}" 返回 ${topics.length} 条`)
                 if (!topics.length) continue
 
                 // 主源全量纳入；后续源只随机抽样 FALLBACK_LOCAL_SAMPLE 个补充
@@ -169,11 +165,7 @@ export class QueryCore {
 
             if (shuffle) {
                 this.bot.utils.shuffleArray(topics)
-                this.bot.logger.debug(
-                    this.bot.isMobile,
-                    'QUERY-MANAGER',
-                    `主题词池已打乱 | 首个="${topics[0] ?? ''}"`
-                )
+                this.bot.logger.debug(this.bot.isMobile, 'QUERY-MANAGER', `主题词池已打乱 | 首个="${topics[0] ?? ''}"`)
             }
 
             this.bot.logger.debug(
@@ -531,7 +523,11 @@ export class QueryCore {
 
             const feeds = RSS_FEEDS[site]
             if (!feeds) {
-                this.bot.logger.warn(this.bot.isMobile, 'SEARCH-RSS', `未知的 RSS 站点 "${site}"（选择器 "${selector}"）`)
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'SEARCH-RSS',
+                    `未知的 RSS 站点 "${site}"（选择器 "${selector}"）`
+                )
                 continue
             }
 
@@ -693,10 +689,7 @@ export class QueryCore {
                 await maybeBackoff(backoffMultiplier)
                 const source = fallback[i]!
                 try {
-                    const result = await this.fetchChinaHotWords(
-                        this.buildChinaApiUrl(baseUrl, source, appkey),
-                        source
-                    )
+                    const result = await this.fetchChinaHotWords(this.buildChinaApiUrl(baseUrl, source, appkey), source)
                     if (result.length) {
                         result.forEach(t => titles.add(t))
                         this.bot.logger.info(

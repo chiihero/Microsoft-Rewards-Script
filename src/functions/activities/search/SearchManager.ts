@@ -21,11 +21,11 @@ export class SearchManager {
         const counters = await this.progress.getCounters()
         const quotas = this.progress.calculateQuotas(counters)
         const mobileMissing = quotas.mobile.remaining
-        const desktopQuota = this.combineQuotas(quotas.desktop, quotas.edge)
+        const desktopQuota = this.progress.calculateQuota(counters.pcSearch)
         const desktopMissing = desktopQuota.remaining
 
-        const doMobile = this.bot.config.workers.doMobileSearch && mobileMissing > 0
-        const doDesktop = this.bot.config.workers.doDesktopSearch && desktopMissing > 0
+        const doMobile = this.bot.config.workers.doMobileSearch && quotas.mobile.known && mobileMissing > 0
+        const doDesktop = this.bot.config.workers.doDesktopSearch && desktopQuota.known && desktopMissing > 0
 
         this.bot.logger.info(
             'main',
@@ -38,19 +38,9 @@ export class SearchManager {
         return { doMobile, doDesktop, mobileMissing, desktopMissing }
     }
 
-    private combineQuotas(...quotas: SearchQuota[]): SearchQuota {
-        return quotas.reduce(
-            (total, quota) => ({
-                earned: total.earned + quota.earned,
-                max: total.max + quota.max,
-                remaining: total.remaining + quota.remaining
-            }),
-            { earned: 0, max: 0, remaining: 0 }
-        )
-    }
-
     private describeQuota(enabled: boolean, quota: SearchQuota): string {
         if (!enabled) return `skip (disabled, ${quota.earned}/${quota.max})`
+        if (!quota.known) return 'skip (quota not provided)'
         if (quota.remaining <= 0) return `skip (complete, ${quota.earned}/${quota.max})`
         return `run (${quota.earned}/${quota.max}, missing ${quota.remaining})`
     }

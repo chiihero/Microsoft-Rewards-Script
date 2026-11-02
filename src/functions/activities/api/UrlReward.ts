@@ -12,11 +12,7 @@ export class UrlReward extends BaseActivity {
 
         const actionId = this.bot.nextActions.reportActivity
         if (!actionId) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'URL-REWARD',
-                `跳过 ${offerId}：bundle 中未发现 "reportActivity"`
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'URL-REWARD', `跳过 ${offerId}：bundle 中未发现 "reportActivity"`)
             return
         }
 

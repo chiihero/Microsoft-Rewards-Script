@@ -50,11 +50,7 @@ export default class BrowserUtils {
                         if (b) {
                             const clicked = await this.ghostClick(page, b.selector)
                             if (clicked) {
-                                this.bot.logger.debug(
-                                    this.bot.isMobile,
-                                    'DISMISS-ALL-MESSAGES',
-                                    `已关闭: ${b.label}`
-                                )
+                                this.bot.logger.debug(this.bot.isMobile, 'DISMISS-ALL-MESSAGES', `已关闭: ${b.label}`)
                             }
                         }
                     })
@@ -70,11 +66,7 @@ export default class BrowserUtils {
                 } else {
                     const accepted = await this.ghostClick(page, '#bnp_btn_accept')
                     if (accepted) {
-                        this.bot.logger.debug(
-                            this.bot.isMobile,
-                            'DISMISS-ALL-MESSAGES',
-                            '已关闭: Bing Overlay Accept'
-                        )
+                        this.bot.logger.debug(this.bot.isMobile, 'DISMISS-ALL-MESSAGES', '已关闭: Bing Overlay Accept')
                     }
                 }
                 await this.bot.utils.wait(250)

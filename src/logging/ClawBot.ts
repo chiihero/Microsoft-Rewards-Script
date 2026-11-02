@@ -37,7 +37,9 @@ export async function sendClawBot(config: WebhookClawBotConfig, content: string)
                 // context_token 缺失或失效（ret=-2）：清除后等待下次启动时重新激活
                 auth.contextToken = undefined
                 saveClawBotAuth(auth, config.authFile)
-                console.warn('[ClawBot] 推送上下文失效，本次跳过；下次运行时请在微信给「微信 ClawBot」发一条消息完成激活')
+                console.warn(
+                    '[ClawBot] 推送上下文失效，本次跳过；下次运行时请在微信给「微信 ClawBot」发一条消息完成激活'
+                )
             } else if (result === 'error') {
                 console.warn('[ClawBot] 发送失败，已跳过（不影响任务运行）')
             }

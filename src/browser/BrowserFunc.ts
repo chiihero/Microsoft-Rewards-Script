@@ -1,3 +1,4 @@
+import { SearchProgress } from '../functions/activities/search/SearchProgress'
 import { URLs } from '../constants/urls'
 import { BING_APP_USER_AGENT } from '../constants/userAgents'
 import type { BrowserContext, Cookie, Page } from 'patchright'
@@ -130,10 +131,9 @@ export default class BrowserFunc {
         const firstTime = !this.botMetricsLoggedPlatforms.has(platform)
         this.botMetricsLoggedPlatforms.add(platform)
 
-        const message =
-            `机器人检测指标 | serpbotscore=${score ?? '未知'} | 更新时间=${
-                scoreUpdated ? String(scoreUpdated).slice(0, 16) : '未知'
-            } | userWarnings=${warningNames.length > 0 ? warningNames.join(', ') : '无'}`
+        const message = `机器人检测指标 | serpbotscore=${score ?? '未知'} | 更新时间=${
+            scoreUpdated ? String(scoreUpdated).slice(0, 16) : '未知'
+        } | userWarnings=${warningNames.length > 0 ? warningNames.join(', ') : '无'}`
 
         if (warningNames.length > 0) {
             this.bot.logger.warn(this.bot.isMobile, 'GET-DASHBOARD-DATA', message)
@@ -178,19 +178,12 @@ export default class BrowserFunc {
         try {
             data ??= await this.getDashboardData()
 
-            const desktopSearchPoints =
-                data.dashboard.userStatus.counters.pcSearch?.reduce(
-                    (sum: number, x: { pointProgressMax: number; pointProgress: number }) =>
-                        sum + (x.pointProgressMax - x.pointProgress),
-                    0
-                ) ?? 0
-
-            const mobileSearchPoints =
-                data.dashboard.userStatus.counters.mobileSearch?.reduce(
-                    (sum: number, x: { pointProgressMax: number; pointProgress: number }) =>
-                        sum + (x.pointProgressMax - x.pointProgress),
-                    0
-                ) ?? 0
+            const progress = new SearchProgress(this.bot)
+            const counters = data.dashboard.userStatus.counters
+            const desktop = progress.calculateQuota(counters.pcSearch)
+            const mobile = progress.calculateQuota(counters.mobileSearch)
+            const desktopSearchPoints = desktop.known ? desktop.remaining : null
+            const mobileSearchPoints = mobile.known ? mobile.remaining : null
 
             const todayDate = this.bot.utils.getFormattedDate()
             const dailySetPoints =
@@ -208,7 +201,10 @@ export default class BrowserFunc {
                     return sum
                 }, 0) ?? 0
 
-            const totalEarnablePoints = desktopSearchPoints + mobileSearchPoints + dailySetPoints + morePromotionsPoints
+            const totalEarnablePoints =
+                desktopSearchPoints === null || mobileSearchPoints === null
+                    ? null
+                    : desktopSearchPoints + mobileSearchPoints + dailySetPoints + morePromotionsPoints
 
             return {
                 dailySetPoints,
@@ -589,11 +585,7 @@ export default class BrowserFunc {
                 if (isBrowserClosedError(error)) {
                     this.bot.logger.debug(this.bot.isMobile, 'CLOSE-BROWSER', '浏览器已处于关闭状态。')
                 } else {
-                    this.bot.logger.warn(
-                        this.bot.isMobile,
-                        'CLOSE-BROWSER',
-                        '关闭时遇到错误，但进程仍在退出。'
-                    )
+                    this.bot.logger.warn(this.bot.isMobile, 'CLOSE-BROWSER', '关闭时遇到错误，但进程仍在退出。')
                 }
             }
         }
@@ -618,11 +610,7 @@ export default class BrowserFunc {
                 return await response.text()
             }
 
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                'REWARDS-PAGE',
-                `获取 ${route} 失败 | 状态码=${response.status()}`
-            )
+            this.bot.logger.debug(this.bot.isMobile, 'REWARDS-PAGE', `获取 ${route} 失败 | 状态码=${response.status()}`)
         } catch (error) {
             this.bot.logger.debug(
                 this.bot.isMobile,
@@ -642,11 +630,7 @@ export default class BrowserFunc {
     async checkpointActiveSession(source = 'SESSION-CHECKPOINT'): Promise<boolean> {
         const page = this.getActivePage()
         if (!page) {
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                source,
-                '无法保存会话检查点，因为没有可用的活动浏览器页面'
-            )
+            this.bot.logger.debug(this.bot.isMobile, source, '无法保存会话检查点，因为没有可用的活动浏览器页面')
             return false
         }
 

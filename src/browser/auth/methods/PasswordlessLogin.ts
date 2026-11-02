@@ -96,11 +96,7 @@ export class PasswordlessLogin {
             await this.bot.utils.wait(1000)
         }
 
-        this.bot.logger.warn(
-            this.bot.isMobile,
-            'LOGIN-PASSWORDLESS',
-            `${this.approvalTimeoutSeconds} 秒后批准超时!`
-        )
+        this.bot.logger.warn(this.bot.isMobile, 'LOGIN-PASSWORDLESS', `${this.approvalTimeoutSeconds} 秒后批准超时!`)
         return 'TIMED_OUT'
     }
 

@@ -74,11 +74,7 @@ export class EdgeBrowsing extends BaseActivity {
                 if (signal?.aborted) return
 
                 if (activation === 'absent') {
-                    this.bot.logger.info(
-                        this.bot.isMobile,
-                        LOG_TAG,
-                        '该账户无法使用 Edge 浏览连击（Browsing Streak）'
-                    )
+                    this.bot.logger.info(this.bot.isMobile, LOG_TAG, '该账户无法使用 Edge 浏览连击（Browsing Streak）')
                     return
                 }
 
@@ -228,9 +224,7 @@ export class EdgeBrowsing extends BaseActivity {
             this.bot.logger.error(
                 this.bot.isMobile,
                 LOG_TAG,
-                `后台 Edge 浏览活动失败 | message=${
-                    error instanceof Error ? error.message : String(error)
-                }`
+                `后台 Edge 浏览活动失败 | message=${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
@@ -301,30 +295,18 @@ export class EdgeBrowsing extends BaseActivity {
         }
 
         if (!offer.hash) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                LOG_TAG,
-                `激活 offer 存在但缺少 hash | offerId=${offer.offerId}`
-            )
+            this.bot.logger.warn(this.bot.isMobile, LOG_TAG, `激活 offer 存在但缺少 hash | offerId=${offer.offerId}`)
             return 'failed'
         }
 
         if (!offer.reportable && !offer.isLocked) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                LOG_TAG,
-                `激活 offer 不可操作 | offerId=${offer.offerId}`
-            )
+            this.bot.logger.warn(this.bot.isMobile, LOG_TAG, `激活 offer 不可操作 | offerId=${offer.offerId}`)
             return 'failed'
         }
 
         const actionId = this.bot.nextActions.reportActivity
         if (!actionId) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                LOG_TAG,
-                '跳过激活：bundle 中未发现 "reportActivity" action id'
-            )
+            this.bot.logger.warn(this.bot.isMobile, LOG_TAG, '跳过激活：bundle 中未发现 "reportActivity" action id')
             return 'failed'
         }
 
@@ -647,11 +629,7 @@ export class EdgeBrowsing extends BaseActivity {
     private resolveSettings(profile: AppDashboardData): EdgeBrowsingSettings | null {
         const promotion = this.findPromotion(profile)
         if (!promotion) {
-            this.bot.logger.info(
-                this.bot.isMobile,
-                LOG_TAG,
-                '该账户无法使用 Edge 浏览连击（Browsing Streak）'
-            )
+            this.bot.logger.info(this.bot.isMobile, LOG_TAG, '该账户无法使用 Edge 浏览连击（Browsing Streak）')
             return null
         }
 
@@ -661,8 +639,7 @@ export class EdgeBrowsing extends BaseActivity {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 LOG_TAG,
-                `跳过：优惠元数据不完整 | offerId=${offerId || 'missing'}` +
-                    ` | type=${activityType || 'missing'}`
+                `跳过：优惠元数据不完整 | offerId=${offerId || 'missing'}` + ` | type=${activityType || 'missing'}`
             )
             return null
         }

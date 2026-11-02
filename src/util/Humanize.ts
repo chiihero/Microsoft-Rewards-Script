@@ -110,11 +110,7 @@ export async function waitForQuietHours(): Promise<void> {
         if (waitMs <= 0) return
 
         const resumeAt = new Date(Date.now() + waitMs)
-        bot?.logger.info(
-            'main',
-            'HUMANIZE',
-            `当前处于静默时段，挂起到 ${formatClock(resumeAt)}（humanize.quietHours）`
-        )
+        bot?.logger.info('main', 'HUMANIZE', `当前处于静默时段，挂起到 ${formatClock(resumeAt)}（humanize.quietHours）`)
         await new Promise(resolve => setTimeout(resolve, waitMs))
     }
 }

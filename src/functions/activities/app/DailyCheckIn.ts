@@ -10,11 +10,7 @@ export class DailyCheckIn extends BaseActivity {
 
     public async doDailyCheckIn() {
         if (!this.bot.accessToken) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'DAILY-CHECK-IN',
-                '跳过：应用访问令牌不可用，此活动需要它！'
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'DAILY-CHECK-IN', '跳过：应用访问令牌不可用，此活动需要它！')
             return
         }
 

@@ -30,11 +30,7 @@ export function suspendMediaBlocking(bot: MicrosoftRewardsBot, context: BrowserC
     if (!state?.enabled) return
 
     state.enabled = false
-    bot.logger.info(
-        bot.isMobile,
-        'BROWSER',
-        '登录期间媒体加载已放行 | 图片与媒体请求暂不拦截'
-    )
+    bot.logger.info(bot.isMobile, 'BROWSER', '登录期间媒体加载已放行 | 图片与媒体请求暂不拦截')
 }
 
 export async function configureMediaBlocking(bot: MicrosoftRewardsBot, context: BrowserContext): Promise<void> {

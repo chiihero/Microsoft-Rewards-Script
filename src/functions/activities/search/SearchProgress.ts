@@ -3,6 +3,7 @@ import type { Counters, DashboardImpression } from '../../../interface/Dashboard
 import type { MissingSearchPoints } from '../../../interface/Points'
 
 export interface SearchQuota {
+    known: boolean
     earned: number
     max: number
     remaining: number
@@ -48,13 +49,21 @@ export class SearchProgress {
             : pcCounters
 
         return {
-            mobile: this.summarize(counters.mobileSearch ?? []),
-            desktop: this.summarize(desktopCounters),
-            edge: this.summarize(explicitEdgeCounters)
+            mobile: this.calculateQuota(counters.mobileSearch ?? []),
+            desktop: this.calculateQuota(desktopCounters),
+            edge: this.calculateQuota(explicitEdgeCounters)
         }
     }
 
-    private summarize(counters: DashboardImpression[]): SearchQuota {
+    public calculateQuota(counters: DashboardImpression[] | undefined): SearchQuota {
+        if (
+            !counters?.length ||
+            counters.some(
+                counter => !Number.isFinite(counter.pointProgressMax) || !Number.isFinite(counter.pointProgress)
+            )
+        ) {
+            return { known: false, earned: 0, max: 0, remaining: 0 }
+        }
         return counters.reduce<SearchQuota>(
             (quota, counter) => {
                 const max = Math.max(0, Number(counter.pointProgressMax) || 0)
@@ -64,7 +73,7 @@ export class SearchProgress {
                 quota.remaining += max - earned
                 return quota
             },
-            { earned: 0, max: 0, remaining: 0 }
+            { known: true, earned: 0, max: 0, remaining: 0 }
         )
     }
 

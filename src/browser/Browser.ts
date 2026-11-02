@@ -131,16 +131,10 @@ class Browser {
                     this.bot.isMobile,
                     'SESSION',
                     `正在恢复已保存的浏览器会话 | Cookie数=${session.storageState.cookies.length} | origins=${session.storageState.origins.length} | 已保存分钟数=${ageMinutes}` +
-                        (session.expiredCookiesRemoved
-                            ? ` | 已清除过期Cookie=${session.expiredCookiesRemoved}`
-                            : '')
+                        (session.expiredCookiesRemoved ? ` | 已清除过期Cookie=${session.expiredCookiesRemoved}` : '')
                 )
             } else {
-                this.bot.logger.info(
-                    this.bot.isMobile,
-                    'SESSION',
-                    '未找到已保存的浏览器会话；可能需要登录'
-                )
+                this.bot.logger.info(this.bot.isMobile, 'SESSION', '未找到已保存的浏览器会话；可能需要登录')
             }
 
             const shouldUseFingerprint = this.bot.isMobile
@@ -181,8 +175,7 @@ class Browser {
                 }
 
                 fingerprint =
-                    (reuseFingerprint && savedFingerprint) ||
-                    (await this.generateFingerprint(this.bot.isMobile))
+                    (reuseFingerprint && savedFingerprint) || (await this.generateFingerprint(this.bot.isMobile))
 
                 const screen = fingerprint.fingerprint.screen
 
@@ -220,9 +213,7 @@ class Browser {
             }
 
             context.on('page', p => {
-                p.on('crash', () =>
-                    this.bot.logger.error(this.bot.isMobile, 'BROWSER', `渲染器崩溃 | ${p.url()}`)
-                )
+                p.on('crash', () => this.bot.logger.error(this.bot.isMobile, 'BROWSER', `渲染器崩溃 | ${p.url()}`))
             })
             context.on('close', () => this.bot.logger.warn(this.bot.isMobile, 'BROWSER', '浏览器上下文已关闭'))
 

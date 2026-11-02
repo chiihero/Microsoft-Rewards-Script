@@ -12,11 +12,7 @@ export class AppReward extends BaseActivity {
 
     public async doAppReward(promotion: Promotion) {
         if (!this.bot.accessToken) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'APP-REWARD',
-                '跳过：应用访问令牌不可用，此活动需要它！'
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'APP-REWARD', '跳过：应用访问令牌不可用，此活动需要它！')
             return
         }
 

@@ -177,20 +177,12 @@ export class MicrosoftRewardsBot {
         let refreshSucceeded = false
 
         if (!account?.email) {
-            this.logger.debug(
-                this.isMobile,
-                'CONTEXT-REFRESH',
-                `无法刷新奖励上下文 | 原因=${reason} | 账户=不可用`
-            )
+            this.logger.debug(this.isMobile, 'CONTEXT-REFRESH', `无法刷新奖励上下文 | 原因=${reason} | 账户=不可用`)
             return false
         }
 
         try {
-            this.logger.warn(
-                this.isMobile,
-                'CONTEXT-REFRESH',
-                `请求失败后正在刷新奖励浏览器上下文 | 原因=${reason}`
-            )
+            this.logger.warn(this.isMobile, 'CONTEXT-REFRESH', `请求失败后正在刷新奖励浏览器上下文 | 原因=${reason}`)
 
             if (!page || page.isClosed()) {
                 recoverySession = await this.browserFactory.createBrowser(account)
@@ -595,9 +587,10 @@ export class MicrosoftRewardsBot {
                         )
                     }
                 } else {
-                    const errorDetail = flowError && flowError !== 'undefined'
-                        ? flowError.replace(/\r?\n/g, ' ').slice(0, 120)
-                        : '流程失败（未捕获到错误详情）'
+                    const errorDetail =
+                        flowError && flowError !== 'undefined'
+                            ? flowError.replace(/\r?\n/g, ' ').slice(0, 120)
+                            : '流程失败（未捕获到错误详情）'
 
                     accountStats.push({
                         email: accountEmail,
@@ -674,9 +667,7 @@ export class MicrosoftRewardsBot {
         this.logger.info(
             'main',
             'ACCOUNT-DELAY',
-            `等待 ${(delayMs / 1000).toFixed(1)} 秒后开始下一个账户${
-                nextEmail ? ` (${nextEmail})` : ''
-            }`
+            `等待 ${(delayMs / 1000).toFixed(1)} 秒后开始下一个账户${nextEmail ? ` (${nextEmail})` : ''}`
         )
         await this.utils.wait(delayMs)
     }
@@ -787,11 +778,7 @@ export class MicrosoftRewardsBot {
                             desktopSession = await this.createDesktopSession(account)
                         })
                         await closeDesktopSession()
-                        this.logger.info(
-                            'main',
-                            'FLOW',
-                            '桌面会话预热完成 | 后续桌面阶段将直接复用已保存会话'
-                        )
+                        this.logger.info('main', 'FLOW', '桌面会话预热完成 | 后续桌面阶段将直接复用已保存会话')
                     } catch (error) {
                         desktopPrewarmFailed = true
                         this.logger.warn(
@@ -806,11 +793,7 @@ export class MicrosoftRewardsBot {
 
                 if (fullApi) {
                     await closeMobileSession()
-                    this.logger.info(
-                        'main',
-                        'FLOW',
-                        '移动端登录浏览器已关闭；继续使用已保存的会话和 HTTP 请求'
-                    )
+                    this.logger.info('main', 'FLOW', '移动端登录浏览器已关闭；继续使用已保存的会话和 HTTP 请求')
                 }
 
                 const data: DashboardData = await this.browser.func.getDashboardData()
@@ -909,8 +892,8 @@ export class MicrosoftRewardsBot {
                 this.logger.info(
                     'main',
                     'POINTS',
-                    `今日可赚取 | 移动端: ${browserEarnable.mobileSearchPoints} | 浏览器: ${
-                        browserEarnable.desktopSearchPoints
+                    `今日可赚取 | 移动端: ${browserEarnable.mobileSearchPoints ?? '未提供'} | 浏览器: ${
+                        browserEarnable.desktopSearchPoints ?? '未提供'
                     } | App: ${appEarnable?.totalEarnablePoints ?? 0} | ${accountEmail} | locale: ${this.accountLocale.locale}`
                 )
 
@@ -929,9 +912,7 @@ export class MicrosoftRewardsBot {
                             this.logger.error(
                                 this.isMobile,
                                 'EDGE-BROWSING',
-                                `意外的后台任务失败 | 信息=${
-                                    error instanceof Error ? error.message : String(error)
-                                }`
+                                `意外的后台任务失败 | 信息=${error instanceof Error ? error.message : String(error)}`
                             )
                         })
                         .finally(() => {
@@ -1109,11 +1090,7 @@ export class MicrosoftRewardsBot {
 
                 if (edgeBrowsingTask) {
                     if (!edgeBrowsingFinished) {
-                        this.logger.info(
-                            this.isMobile,
-                            'EDGE-BROWSING',
-                            '前台活动已完成；正在等待后台 Edge 浏览活动'
-                        )
+                        this.logger.info(this.isMobile, 'EDGE-BROWSING', '前台活动已完成；正在等待后台 Edge 浏览活动')
                     }
                     await edgeBrowsingTask
                     edgeBrowsingTask = null
@@ -1223,9 +1200,11 @@ async function main(): Promise<void> {
     }
 }
 
-main().catch(async error => {
-    const tmpBot = new MicrosoftRewardsBot()
-    tmpBot.logger.error('main', 'MAIN-ERROR', error as Error)
-    await flushAllWebhooks()
-    process.exit(1)
-})
+if (require.main === module) {
+    main().catch(async error => {
+        const tmpBot = new MicrosoftRewardsBot()
+        tmpBot.logger.error('main', 'MAIN-ERROR', error as Error)
+        await flushAllWebhooks()
+        process.exit(1)
+    })
+}

@@ -115,17 +115,9 @@ export class CodeLogin {
             if (emailProofInput) {
                 const selectorVariant =
                     emailProofInput.selector === this.emailVerificationInputSelectors[0] ? 'new' : 'old'
-                this.bot.logger.debug(
-                    this.bot.isMobile,
-                    'LOGIN-CODE',
-                    `使用${selectorVariant}版邮箱验证输入选择器`
-                )
+                this.bot.logger.debug(this.bot.isMobile, 'LOGIN-CODE', `使用${selectorVariant}版邮箱验证输入选择器`)
                 const maskedHint = emailMessage?.match(/[A-Za-z0-9._*+-]+@[A-Za-z0-9.*-]+\.[A-Za-z]{2,}/)?.[0]
-                this.bot.logger.info(
-                    this.bot.isMobile,
-                    'LOGIN-CODE',
-                    '检测到邮箱验证挑战，等待邮箱地址'
-                )
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN-CODE', '检测到邮箱验证挑战，等待邮箱地址')
 
                 let emailVerified = false
                 for (let attempt = 1; attempt <= this.maxManualAttempts; attempt++) {

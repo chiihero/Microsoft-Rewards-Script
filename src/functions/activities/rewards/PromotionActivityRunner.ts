@@ -36,9 +36,7 @@ export class PromotionActivityRunner extends BaseActivity {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'ACTIVITY',
-                `跳过活动 "${promotion.title}" | offerId=${offerId} | 原因：不支持的类型 "${
-                    promotion.promotionType
-                }"`
+                `跳过活动 "${promotion.title}" | offerId=${offerId} | 原因：不支持的类型 "${promotion.promotionType}"`
             )
             return
         }
@@ -73,10 +71,6 @@ export class PromotionActivityRunner extends BaseActivity {
     }
 
     private logDisabled(activity: string, offerId: string): void {
-        this.bot.logger.info(
-            this.bot.isMobile,
-            'ACTIVITY',
-            `跳过 "${activity}"（配置中已禁用） | offerId=${offerId}`
-        )
+        this.bot.logger.info(this.bot.isMobile, 'ACTIVITY', `跳过 "${activity}"（配置中已禁用） | offerId=${offerId}`)
     }
 }

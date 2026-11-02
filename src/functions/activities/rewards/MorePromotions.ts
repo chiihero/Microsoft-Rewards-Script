@@ -17,11 +17,7 @@ export class MorePromotions extends BaseActivity {
 
         const pending = promotions.filter(promotion => this.isActionable(promotion))
         if (!pending.length) {
-            this.bot.logger.info(
-                this.bot.isMobile,
-                'MORE-PROMOTIONS',
-                '所有"更多推广"项目已完成'
-            )
+            this.bot.logger.info(this.bot.isMobile, 'MORE-PROMOTIONS', '所有"更多推广"项目已完成')
             return
         }
 

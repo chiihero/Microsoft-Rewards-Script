@@ -47,7 +47,8 @@ export function loadClawBotAuth(customPath?: string): ClawBotAuth | null {
                 accountId: typeof raw.accountId === 'string' ? raw.accountId : '',
                 userId: raw.userId,
                 contextToken: typeof raw.contextToken === 'string' && raw.contextToken ? raw.contextToken : undefined,
-                getUpdatesBuf: typeof raw.getUpdatesBuf === 'string' && raw.getUpdatesBuf ? raw.getUpdatesBuf : undefined,
+                getUpdatesBuf:
+                    typeof raw.getUpdatesBuf === 'string' && raw.getUpdatesBuf ? raw.getUpdatesBuf : undefined,
                 savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : new Date().toISOString()
             }
         }
@@ -99,11 +100,7 @@ async function iLinkPost<T>(url: string, data: unknown, opts: { token?: string; 
     return response.data
 }
 
-async function iLinkGet<T>(
-    url: string,
-    params: Record<string, string>,
-    opts: { timeout?: number } = {}
-): Promise<T> {
+async function iLinkGet<T>(url: string, params: Record<string, string>, opts: { timeout?: number } = {}): Promise<T> {
     const response = await httpRequest<T>({
         method: 'GET',
         url,
@@ -221,7 +218,10 @@ export interface ClawBotLoginResult {
  * 交互式扫码登录：终端展示二维码，等待手机微信确认。
  * 总超时默认 5 分钟；期间处理数字配对码、二维码过期刷新与 IDC 重定向。
  */
-export async function loginClawBotInteractive(customAuthPath?: string, timeoutMs = DEFAULT_LOGIN_TIMEOUT_MS): Promise<ClawBotLoginResult> {
+export async function loginClawBotInteractive(
+    customAuthPath?: string,
+    timeoutMs = DEFAULT_LOGIN_TIMEOUT_MS
+): Promise<ClawBotLoginResult> {
     const existing = loadClawBotAuth(customAuthPath)
     const localTokenList = existing?.token ? [existing.token] : []
 
@@ -275,7 +275,9 @@ export async function loginClawBotInteractive(customAuthPath?: string, timeoutMs
                 }
                 break
             case 'need_verifycode': {
-                const prompt = pendingVerifyCode ? '❌ 数字不匹配，请重新输入手机微信显示的数字：' : '请输入手机微信上显示的数字以继续：'
+                const prompt = pendingVerifyCode
+                    ? '❌ 数字不匹配，请重新输入手机微信显示的数字：'
+                    : '请输入手机微信上显示的数字以继续：'
                 pendingVerifyCode = await readVerifyCodeFromStdin(prompt)
                 continue
             }

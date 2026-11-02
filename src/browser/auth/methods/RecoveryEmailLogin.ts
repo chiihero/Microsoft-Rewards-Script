@@ -71,11 +71,7 @@ export class RecoveryLogin {
                 throw new Error('Recovery email is required because interactive stdin is unavailable')
             }
 
-            this.bot.logger.info(
-                this.bot.isMobile,
-                'LOGIN-RECOVERY',
-                '未提供恢复邮箱，将提示用户输入'
-            )
+            this.bot.logger.info(this.bot.isMobile, 'LOGIN-RECOVERY', '未提供恢复邮箱，将提示用户输入')
 
             for (let attempt = 1; attempt <= this.maxManualAttempts; attempt++) {
                 this.bot.logger.info(

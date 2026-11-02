@@ -197,9 +197,9 @@ ACCOUNT_1_PASSWORD=your_password
 >
 > ```yaml
 > services:
->   microsoft-rewards-script:
->     env_file:
->       - path: .env
+>     microsoft-rewards-script:
+>         env_file:
+>             - path: .env
 > ```
 >
 > 另外用**列表式** `environment:`（`- KEY=value`）时值**不要加引号**——引号会成为值的一部分（如 `- CRON_SCHEDULE="0 9 * * *"` 会让 cron 表达式带引号而失效）；映射式（`KEY: value`）则按 YAML 规则正常加引号。
@@ -268,21 +268,21 @@ docker compose restart          # 重启（不重建）
 <details>
 <summary><b>🔵 Core / 核心配置</b></summary>
 
-| 设置                        | 描述                                | 默认值          | Docker 环境变量                       |
-| --------------------------- | ----------------------------------- | --------------- | ------------------------------------- |
-| `sessionPath`               | 存储浏览器会话的目录                | `sessions`      | —                                     |
-| `headless`                  | 在后台运行浏览器                    | `false`（可见） | Docker 强制 `true`                    |
-| `browserChannel`            | `chromium`（内置补丁版，推荐）或 `msedge`（系统真实 Edge；⚠️ 实验性：Edge 152 + Playwright 1.6x 访问 rewards.bing.com 会崩溃，见 [playwright#41438](https://github.com/microsoft/playwright/issues/41438)，修复后可重试） | `chromium` | `CONFIG_BROWSER_CHANNEL`              |
-| `clusters`                  | 并发账户集群数                      | `1`             | `CONFIG_CLUSTERS`                     |
-| `errorDiagnostics`          | 出错时保存诊断信息到 `diagnostics/` | `false`         | `CONFIG_ERROR_DIAGNOSTICS`            |
-| `ensureStreakProtection`    | 确保连击保护已开启                  | `true`          | `CONFIG_ENSURE_STREAK_PROTECTION`     |
-| `autoClaimPunchcardRewards` | 自动领取已完成的打卡奖励            | `false`         | `CONFIG_AUTO_CLAIM_PUNCHCARD_REWARDS` |
-| `contintueOnBotWarning`     | 账户收到机器人评分警告（Fraud_UserWarning_BotScore_UX）时仍继续运行；默认跳过该账户并建议暂停几天（不推荐开启。键名为上游历史拼写，保留以兼容） | `false` | `CONFIG_CONTINTUE_ON_BOT_WARNING`     |
-| `skipNonPointTasks`         | 跳过无积分奖励的任务                | `true`          | `CONFIG_SKIP_NON_POINT_TASKS`         |
-| `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话 | `false` | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
-| `accountDelay.min` / `.max` | 下一账户开始前的延迟                | `1min` - `3min` | `CONFIG_ACCOUNT_DELAY_MIN` / `_MAX`   |
-| `searchOnBingLocalQueries`  | ExploreOnBing 活动使用本地词库      | `false`         | `CONFIG_SEARCH_ON_BING_LOCAL`         |
-| `globalTimeout`             | 所有操作的超时时间                  | `30sec`         | `CONFIG_GLOBAL_TIMEOUT`               |
+| 设置                        | 描述                                                                                                                                                                                                                      | 默认值          | Docker 环境变量                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------- |
+| `sessionPath`               | 存储浏览器会话的目录                                                                                                                                                                                                      | `sessions`      | —                                     |
+| `headless`                  | 在后台运行浏览器                                                                                                                                                                                                          | `false`（可见） | Docker 强制 `true`                    |
+| `browserChannel`            | `chromium`（内置补丁版，推荐）或 `msedge`（系统真实 Edge；⚠️ 实验性：Edge 152 + Playwright 1.6x 访问 rewards.bing.com 会崩溃，见 [playwright#41438](https://github.com/microsoft/playwright/issues/41438)，修复后可重试） | `chromium`      | `CONFIG_BROWSER_CHANNEL`              |
+| `clusters`                  | 并发账户集群数                                                                                                                                                                                                            | `1`             | `CONFIG_CLUSTERS`                     |
+| `errorDiagnostics`          | 出错时保存诊断信息到 `diagnostics/`                                                                                                                                                                                       | `false`         | `CONFIG_ERROR_DIAGNOSTICS`            |
+| `ensureStreakProtection`    | 确保连击保护已开启                                                                                                                                                                                                        | `true`          | `CONFIG_ENSURE_STREAK_PROTECTION`     |
+| `autoClaimPunchcardRewards` | 自动领取已完成的打卡奖励                                                                                                                                                                                                  | `false`         | `CONFIG_AUTO_CLAIM_PUNCHCARD_REWARDS` |
+| `contintueOnBotWarning`     | 账户收到机器人评分警告（Fraud_UserWarning_BotScore_UX）时仍继续运行；默认跳过该账户并建议暂停几天（不推荐开启。键名为上游历史拼写，保留以兼容）                                                                           | `false`         | `CONFIG_CONTINTUE_ON_BOT_WARNING`     |
+| `skipNonPointTasks`         | 跳过无积分奖励的任务                                                                                                                                                                                                      | `true`          | `CONFIG_SKIP_NON_POINT_TASKS`         |
+| `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话                                                                                                        | `false`         | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
+| `accountDelay.min` / `.max` | 下一账户开始前的延迟                                                                                                                                                                                                      | `1min` - `3min` | `CONFIG_ACCOUNT_DELAY_MIN` / `_MAX`   |
+| `searchOnBingLocalQueries`  | ExploreOnBing 活动使用本地词库                                                                                                                                                                                            | `false`         | `CONFIG_SEARCH_ON_BING_LOCAL`         |
+| `globalTimeout`             | 所有操作的超时时间                                                                                                                                                                                                        | `30sec`         | `CONFIG_GLOBAL_TIMEOUT`               |
 
 </details>
 
@@ -420,13 +420,13 @@ docker compose restart          # 重启（不重建）
 
 降低风控特征的运行策略集合。`humanize.enabled=false`（默认）时以下全部不生效，行为与原版一致。
 
-| 设置                                         | 描述                                                                 | 默认值            | Docker 环境变量                                       |
-| -------------------------------------------- | -------------------------------------------------------------------- | ----------------- | ----------------------------------------------------- |
-| `humanize.enabled`                           | 总开关                                                               | `false`           | `CONFIG_HUMANIZE_ENABLED`                             |
-| `humanize.skipWhenCompletedToday`            | 当天已成功运行过（`logs/last-success.txt`）则再次启动时直接退出，配合早晚两次定时实现"兜底轮自动跳过" | `false` | `CONFIG_HUMANIZE_SKIP_WHEN_COMPLETED`                 |
-| `humanize.quietHours`                        | 静默时段数组；运行中进入时段自动挂起到结束，启动时落在时段内也等待后再跑。支持 `start > end` 跨午夜 | `[]`    | 仅 config.json                                        |
-| `humanize.searchTargetRatio.min` / `.max`    | 每轮搜索目标完成度随机区间（移动/桌面各自抽取），保留分向下取整到 3 的倍数 | `0.85` - `1.0` | `CONFIG_HUMANIZE_SEARCH_TARGET_RATIO_MIN` / `_MAX`    |
-| `humanize.readToEarnArticles.min` / `.max`   | Read-to-Earn 每轮随机阅读篇数上限区间                                 | `7` - `10`        | `CONFIG_HUMANIZE_READ_TO_EARN_MIN` / `_MAX`           |
+| 设置                                       | 描述                                                                                                  | 默认值         | Docker 环境变量                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------- |
+| `humanize.enabled`                         | 总开关                                                                                                | `false`        | `CONFIG_HUMANIZE_ENABLED`                          |
+| `humanize.skipWhenCompletedToday`          | 当天已成功运行过（`logs/last-success.txt`）则再次启动时直接退出，配合早晚两次定时实现"兜底轮自动跳过" | `false`        | `CONFIG_HUMANIZE_SKIP_WHEN_COMPLETED`              |
+| `humanize.quietHours`                      | 静默时段数组；运行中进入时段自动挂起到结束，启动时落在时段内也等待后再跑。支持 `start > end` 跨午夜   | `[]`           | 仅 config.json                                     |
+| `humanize.searchTargetRatio.min` / `.max`  | 每轮搜索目标完成度随机区间（移动/桌面各自抽取），保留分向下取整到 3 的倍数                            | `0.85` - `1.0` | `CONFIG_HUMANIZE_SEARCH_TARGET_RATIO_MIN` / `_MAX` |
+| `humanize.readToEarnArticles.min` / `.max` | Read-to-Earn 每轮随机阅读篇数上限区间                                                                 | `7` - `10`     | `CONFIG_HUMANIZE_READ_TO_EARN_MIN` / `_MAX`        |
 
 `quietHours` 规则示例（days 支持全名或缩写，未列出的天不静默）：
 

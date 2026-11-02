@@ -113,11 +113,7 @@ export class VisualSearchBrowser {
         try {
             const page = this.bot.mainDesktopPage
             if (!page || page.isClosed()) {
-                this.bot.logger.warn(
-                    this.bot.isMobile,
-                    'VISUAL-SEARCH-BCID',
-                    '桌面端页面不可用 - 无法获取视觉搜索'
-                )
+                this.bot.logger.warn(this.bot.isMobile, 'VISUAL-SEARCH-BCID', '桌面端页面不可用 - 无法获取视觉搜索')
                 return null
             }
 
@@ -191,11 +187,7 @@ export class VisualSearchBrowser {
     public async getSeedUrls(): Promise<string[]> {
         const page = this.bot.mainDesktopPage
         if (!page || page.isClosed()) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'VISUAL-SEARCH-BCID',
-                '桌面端页面不可用 - 使用静态视觉搜索种子'
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'VISUAL-SEARCH-BCID', '桌面端页面不可用 - 使用静态视觉搜索种子')
             return [STATIC_SEED_URL]
         }
 

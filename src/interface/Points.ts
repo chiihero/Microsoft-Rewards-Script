@@ -1,9 +1,9 @@
 export interface BrowserEarnablePoints {
-    desktopSearchPoints: number
-    mobileSearchPoints: number
+    desktopSearchPoints: number | null
+    mobileSearchPoints: number | null
     dailySetPoints: number
     morePromotionsPoints: number
-    totalEarnablePoints: number
+    totalEarnablePoints: number | null
 }
 
 export interface AppEarnablePoints {

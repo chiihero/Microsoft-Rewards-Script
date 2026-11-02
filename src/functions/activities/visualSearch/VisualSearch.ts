@@ -53,11 +53,7 @@ export class VisualSearch extends BaseActivity {
 
         const available = streak?.isEnabled === true || activation === 'activated' || activation === 'already-active'
         if (!available) {
-            this.bot.logger.info(
-                this.bot.isMobile,
-                'VISUAL-SEARCH',
-                '该账户无法使用视觉搜索，跳过'
-            )
+            this.bot.logger.info(this.bot.isMobile, 'VISUAL-SEARCH', '该账户无法使用视觉搜索，跳过')
             return 0
         }
 
@@ -79,11 +75,7 @@ export class VisualSearch extends BaseActivity {
 
     private logStreakState(streak: StreakState | undefined): void {
         if (!streak) {
-            this.bot.logger.info(
-                this.bot.isMobile,
-                'VISUAL-SEARCH',
-                '快照中没有视觉搜索连击 - 回退到激活优惠'
-            )
+            this.bot.logger.info(this.bot.isMobile, 'VISUAL-SEARCH', '快照中没有视觉搜索连击 - 回退到激活优惠')
             return
         }
 
@@ -94,11 +86,7 @@ export class VisualSearch extends BaseActivity {
         )
 
         if (!streak.isEnabled) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'VISUAL-SEARCH',
-                '连击存在但未启用 - 开启前搜索不会被记录'
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'VISUAL-SEARCH', '连击存在但未启用 - 开启前搜索不会被记录')
         }
     }
 
@@ -133,11 +121,7 @@ export class VisualSearch extends BaseActivity {
         }
 
         if (!offer.reportable && !offer.isLocked) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'VISUAL-SEARCH',
-                `激活优惠无法执行 | offerId=${offer.offerId}`
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'VISUAL-SEARCH', `激活优惠无法执行 | offerId=${offer.offerId}`)
             return 'failed'
         }
 
@@ -461,11 +445,7 @@ export class VisualSearch extends BaseActivity {
             await this.bot.utils.wait(this.bot.utils.randomDelay(3000, 6000))
         }
 
-        this.bot.logger.warn(
-            this.bot.isMobile,
-            'VISUAL-SEARCH',
-            `尝试 ${MAX_ATTEMPTS} 次后每日视觉搜索仍未记分`
-        )
+        this.bot.logger.warn(this.bot.isMobile, 'VISUAL-SEARCH', `尝试 ${MAX_ATTEMPTS} 次后每日视觉搜索仍未记分`)
         return 0
     }
 

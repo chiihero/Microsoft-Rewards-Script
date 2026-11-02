@@ -51,11 +51,7 @@ export class MobileAccessLogin {
             }
 
             if (!code) {
-                this.bot.logger.warn(
-                    this.bot.isMobile,
-                    'LOGIN-APP',
-                    '无法解析移动OAuth代码 - 本次运行将跳过应用活动'
-                )
+                this.bot.logger.warn(this.bot.isMobile, 'LOGIN-APP', '无法解析移动OAuth代码 - 本次运行将跳过应用活动')
                 return ''
             }
 

@@ -236,11 +236,7 @@ export class PunchCards extends BaseActivity {
     private async reportQuestChild(child: QuestChild, parentId: string): Promise<void> {
         const actionId = this.bot.nextActions.reportActivity
         if (!actionId) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'PUNCHCARD',
-                `跳过 ${child.offerId}：未发现 "reportActivity"`
-            )
+            this.bot.logger.warn(this.bot.isMobile, 'PUNCHCARD', `跳过 ${child.offerId}：未发现 "reportActivity"`)
             return
         }
         if (!child.hash) {

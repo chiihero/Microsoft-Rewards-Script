@@ -140,11 +140,7 @@ export class ApiSearch extends BaseActivity {
                 }
 
                 if (stagnant >= STAGNANT_LIMIT) {
-                    this.bot.logger.warn(
-                        isMobile,
-                        'SEARCH-BING',
-                        `连续 ${STAGNANT_LIMIT} 次搜索未得分，中止`
-                    )
+                    this.bot.logger.warn(isMobile, 'SEARCH-BING', `连续 ${STAGNANT_LIMIT} 次搜索未得分，中止`)
                     break
                 }
 
