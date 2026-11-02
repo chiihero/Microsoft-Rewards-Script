@@ -714,8 +714,9 @@ export class MicrosoftRewardsBot {
             try {
                 return await this.activities.doDailyCheckIn()
             } catch (error) {
+                // 已尝试执行（请求已发出）即视为干过活，保留任务间隔；失败状态仍传递至最终汇总
                 checkInError = error instanceof Error ? error.message : String(error)
-                return false
+                return true
             }
         }
 

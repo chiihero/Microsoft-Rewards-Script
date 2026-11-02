@@ -199,10 +199,16 @@ for (const mode of ['browser', 'full-api']) {
         bot.config.workers = { doDailyCheckIn: true, doReadToEarn: true, doMobileSearch: true }
         bot.config.experimental.apiSearch = mode === 'full-api'
         bot.http.request = t.mock.fn(async () => ({ status: 200, data: { code: 0, response: { balance: 100 } } }))
-        bot.activities.doDailyCheckIn = () => new DailyCheckIn(bot).doDailyCheckIn()
+        // 与生产 Activities.doDailyCheckIn 相同的包装：返回 didExecute() 作为「是否干活」
+        bot.activities.doDailyCheckIn = async () => {
+            const activity = new DailyCheckIn(bot)
+            await activity.doDailyCheckIn()
+            return activity.didExecute()
+        }
         const later = []
         bot.activities.doReadToEarn = async () => {
             later.push('read')
+            return true
         }
         bot.searchManager.getSearchPoints = async () => ({ doMobile: true, doDesktop: false })
         bot.searchManager.searchMobile = async () => {

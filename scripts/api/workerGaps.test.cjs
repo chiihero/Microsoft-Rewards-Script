@@ -152,15 +152,28 @@ test('an attempted punchcard request still counts as work when its response fail
     )
 })
 
-for (const method of ['doDailyCheckIn', 'doReadToEarn']) {
-    for (const available of [false, true]) {
-        test(`${method}: ${available ? 'attempted zero-gain activity counts as work' : 'missing token skips without work'}`, async t => {
-            const { bot } = createActivityBot(t)
-            bot.accessToken = available ? 'offline-token' : ''
-            assert.equal(await new Activities(bot)[method](), available)
-            assert.equal(bot.http.request.mock.callCount(), available ? 1 : 0)
-        })
-    }
+for (const available of [false, true]) {
+    test(`doReadToEarn: ${available ? 'attempted zero-gain activity counts as work' : 'missing token skips without work'}`, async t => {
+        const { bot } = createActivityBot(t)
+        bot.accessToken = available ? 'offline-token' : ''
+        assert.equal(await new Activities(bot).doReadToEarn(), available)
+        assert.equal(bot.http.request.mock.callCount(), available ? 1 : 0)
+    })
+}
+
+for (const available of [false, true]) {
+    test(`doDailyCheckIn: ${available ? 'attempted zero-gain activity counts as work（状态未确认时抛错，仍计为已干活）' : 'missing token skips without work'}`, async t => {
+        const { bot } = createActivityBot(t)
+        bot.accessToken = available ? 'offline-token' : ''
+        if (available) {
+            // 合并后语义（#62）：零收益且签到状态未确认 → 抛错交由上层隔离记录；
+            // 请求已发出即已尝试执行（markExecuted），index 层据此保留任务间隔
+            await assert.rejects(() => new Activities(bot).doDailyCheckIn(), /签到未确认到账/)
+        } else {
+            assert.equal(await new Activities(bot).doDailyCheckIn(), false)
+        }
+        assert.equal(bot.http.request.mock.callCount(), available ? 1 : 0)
+    })
 }
 
 for (const available of [false, true]) {

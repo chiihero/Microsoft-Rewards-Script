@@ -9,10 +9,10 @@ export class DailyCheckIn extends BaseActivity {
 
     private oldBalance: number = this.bot.userData.currentPoints
 
-    public async doDailyCheckIn() {
+    public async doDailyCheckIn(): Promise<boolean> {
         if (!this.bot.accessToken) {
             this.bot.logger.warn(this.bot.isMobile, 'DAILY-CHECK-IN', '跳过：应用访问令牌不可用，此活动需要它！')
-            return
+            return false
         }
 
         this.oldBalance = Number(this.bot.userData.currentPoints ?? 0)
@@ -23,7 +23,7 @@ export class DailyCheckIn extends BaseActivity {
                 'DAILY-CHECK-IN',
                 `今日已签到，跳过重复请求 | updatedAt=${before.updatedAt} | currentBalance=${this.oldBalance}`
             )
-            return
+            return false
         }
 
         this.bot.logger.info(
@@ -88,6 +88,7 @@ export class DailyCheckIn extends BaseActivity {
                     `已确认今日签到，本次无新增积分 | pointsGained=0 | currentBalance=${newBalance} | updatedAt=${after.updatedAt}`
                 )
             }
+            return true
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
