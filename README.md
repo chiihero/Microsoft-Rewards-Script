@@ -277,6 +277,7 @@ docker compose restart          # 重启（不重建）
 | `errorDiagnostics`          | 出错时保存诊断信息到 `diagnostics/` | `false`         | `CONFIG_ERROR_DIAGNOSTICS`            |
 | `ensureStreakProtection`    | 确保连击保护已开启                  | `true`          | `CONFIG_ENSURE_STREAK_PROTECTION`     |
 | `autoClaimPunchcardRewards` | 自动领取已完成的打卡奖励            | `false`         | `CONFIG_AUTO_CLAIM_PUNCHCARD_REWARDS` |
+| `contintueOnBotWarning`     | 账户收到机器人评分警告（Fraud_UserWarning_BotScore_UX）时仍继续运行；默认跳过该账户并建议暂停几天（不推荐开启。键名为上游历史拼写，保留以兼容） | `false` | `CONFIG_CONTINTUE_ON_BOT_WARNING`     |
 | `skipNonPointTasks`         | 跳过无积分奖励的任务                | `true`          | `CONFIG_SKIP_NON_POINT_TASKS`         |
 | `prewarmDesktopLogin`       | 移动端登录后立即完成桌面端登录并保存会话（需要手机批准的账户可把两次批准集中在运行开头），之后桌面阶段直接复用会话 | `false` | `CONFIG_PREWARM_DESKTOP_LOGIN`        |
 | `accountDelay.min` / `.max` | 下一账户开始前的延迟                | `1min` - `3min` | `CONFIG_ACCOUNT_DELAY_MIN` / `_MAX`   |
