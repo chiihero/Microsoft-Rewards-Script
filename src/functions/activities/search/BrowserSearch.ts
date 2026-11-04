@@ -118,8 +118,18 @@ export class Search extends BaseActivity {
                 await this.bingSearch(page, query, isMobile)
                 stats.performed++
 
-                await this.bot.browser.func.synchronizeActiveBrowserCookies('SEARCH-COOKIE-CAPTURE')
-                const gained = await tracker.measure()
+                // 查分失败（网络抖动）不应中断整个会话：本轮记为未得分，下一次成功的 measure 会把累计增量补算回来
+                let gained = 0
+                try {
+                    await this.bot.browser.func.synchronizeActiveBrowserCookies('SEARCH-COOKIE-CAPTURE')
+                    gained = await tracker.measure()
+                } catch (error) {
+                    this.bot.logger.warn(
+                        isMobile,
+                        tracker.context,
+                        `查询积分进度失败，继续下一次搜索 | ${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
                 if (gained > 0) {
                     stats.stagnant = 0
                     stats.totalGained += gained
