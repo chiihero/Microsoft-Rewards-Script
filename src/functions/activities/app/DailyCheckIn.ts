@@ -76,7 +76,7 @@ export class DailyCheckIn extends BaseActivity {
                     'green'
                 )
             } else {
-                const after = await this.getCheckInState()
+                const after = await this.getCheckInState(true)
                 if (after.status !== 'complete') {
                     throw new Error(
                         `签到未确认到账 | pointsGained=${this.gainedPoints} | currentBalance=${newBalance} | state=${after.status}`
@@ -99,10 +99,15 @@ export class DailyCheckIn extends BaseActivity {
         }
     }
 
-    private async getCheckInState(): Promise<CheckInState> {
+    private async getCheckInState(trustStreak = false): Promise<CheckInState> {
         try {
             const data = await this.bot.browser.func.getAppDashboardData('SAAndroid')
-            return resolveCheckInState(data.response?.promotions ?? [], this.bot.userData.geoLocale)
+            return resolveCheckInState(
+                data.response?.promotions ?? [],
+                this.bot.userData.geoLocale,
+                new Date(),
+                trustStreak
+            )
         } catch (error) {
             this.bot.logger.warn(
                 this.bot.isMobile,
