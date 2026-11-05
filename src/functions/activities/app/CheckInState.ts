@@ -21,11 +21,16 @@ function dateKey(value: string | Date, country: string): string | null {
 export function resolveCheckInState(
     promotions: Pick<Promotion, 'name' | 'attributes'>[],
     country: string,
-    now = new Date()
+    now = new Date(),
+    // 连胜计数器在完成每日任务等活动时也会刷新到今天，不能据此判断"签到前已签"；
+    // 只在签到请求之后作为到账佐证使用
+    trustStreak = false
 ): CheckInState {
     const today = dateKey(now, country)
     const checkIn = promotions.find(item => item.attributes.offerid === 'Gamification_Sapphire_DailyCheckIn')
-    const streak = promotions.find(item => item.name === 'Gamification_Streak_Counter_Promotion')
+    const streak = trustStreak
+        ? promotions.find(item => item.name === 'Gamification_Streak_Counter_Promotion')
+        : undefined
     for (const item of [streak, checkIn]) {
         const updatedAt = item?.attributes.last_updated
         if (updatedAt && dateKey(updatedAt, country) === today) {

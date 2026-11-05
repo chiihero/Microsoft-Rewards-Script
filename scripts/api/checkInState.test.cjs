@@ -40,6 +40,8 @@ function streak(updatedAt = '2026-10-23T17:26:19.6377348+00:00') {
     }
 }
 const recordedLegacy = legacy({ hidden: 'True', last_updated: '2024-10-18T08:21:27.1990138+00:00' })
+// 签到推广自身记录了今天（北京时间 10-24）的签到
+const checkedInToday = legacy({ last_updated: '2026-10-23T17:26:19.6377348+00:00' })
 
 test('Main leaves the App remaining total unknown when only stale check-in data is available', async t => {
     t.mock.timers.enable({ apis: ['Date'], now: now.getTime() })
@@ -53,7 +55,9 @@ test('Main leaves the App remaining total unknown when only stale check-in data 
 })
 
 for (const [name, promotions, status, remaining] of [
-    ['recorded current check-in overrides stale hidden promotion', [recordedLegacy, streak()], 'complete', 0],
+    // 连胜计数器会被每日任务等活动刷新到今天，签到前不能据此判定已签
+    ['streak updated today by other activities is not a check-in', [recordedLegacy, streak()], 'unknown', null],
+    ['streak alone is not a check-in', [streak()], 'unknown', null],
     ['stale hidden promotion alone does not invent five points', [recordedLegacy], 'unknown', null],
     ['missing timestamp remains unknown', [legacy({ last_updated: '' })], 'unknown', null],
     ['invalid timestamp remains unknown', [legacy({ last_updated: 'invalid' })], 'unknown', null],
@@ -69,7 +73,7 @@ for (const [name, promotions, status, remaining] of [
         'pending',
         5
     ],
-    ['China date uses the date after UTC midnight offset', [streak()], 'complete', 0],
+    ['China date uses the date after UTC midnight offset', [checkedInToday], 'complete', 0],
     ['previous China date is not already checked in', [legacy(), streak('2026-10-23T15:59:00Z')], 'pending', 5],
     ['seventh day reads its explicit reward', [legacy({ progress: '6', day_7_points: '20' })], 'pending', 20],
     ['new seven-day cycle returns to the first day', [legacy({ progress: '7' })], 'pending', 5],
@@ -96,7 +100,7 @@ for (const completed of [true, false]) {
         bot.http.request = t.mock.fn(async () => ({
             data: {
                 response: {
-                    promotions: completed ? [recordedLegacy, streak()] : [recordedLegacy]
+                    promotions: completed ? [checkedInToday] : [recordedLegacy]
                 }
             }
         }))
@@ -116,12 +120,30 @@ function checkInBot(t, promotions = [legacy()]) {
 }
 
 test('already checked-in account skips the repeated request', async t => {
-    const bot = checkInBot(t, [recordedLegacy, streak()])
+    const bot = checkInBot(t, [checkedInToday])
     const activity = new DailyCheckIn(bot)
     await activity.doDailyCheckIn()
 
     assert.equal(bot.http.request.mock.callCount(), 0)
     assert.equal(bot.userData.gainedPoints, 0)
+})
+
+test('streak refreshed by the daily set still submits the check-in and credits it', async t => {
+    const bot = checkInBot(t, [recordedLegacy, streak()])
+    bot.http.request = t.mock.fn(async () => ({ status: 200, data: { code: 0, response: { balance: 110 } } }))
+    await new DailyCheckIn(bot).doDailyCheckIn()
+
+    assert.equal(bot.http.request.mock.callCount(), 1)
+    assert.equal(bot.userData.gainedPoints, 10)
+})
+
+test('a repeated check-in with zero gain is confirmed by the streak record', async t => {
+    const bot = checkInBot(t, [recordedLegacy, streak()])
+    await new DailyCheckIn(bot).doDailyCheckIn()
+
+    assert.equal(bot.http.request.mock.callCount(), 1)
+    assert.equal(bot.userData.gainedPoints, 0)
+    assert.ok(bot.logger.info.mock.calls.some(call => /本次无新增积分/.test(call.arguments[2])))
 })
 
 test('a pending check-in credits only the observed balance change', async t => {
