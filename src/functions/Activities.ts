@@ -120,9 +120,9 @@ export default class Activities {
         await urlReward.doAppReward(promotion)
     }
 
-    doReadToEarn = async (): Promise<boolean> => {
+    doReadToEarn = async (beforeFirstWait?: () => Promise<void>): Promise<boolean> => {
         const activity = new ReadToEarn(this.bot)
-        await activity.doReadToEarn()
+        await activity.doReadToEarn(beforeFirstWait)
         return activity.didExecute()
     }
 
