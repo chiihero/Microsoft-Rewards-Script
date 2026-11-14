@@ -63,6 +63,11 @@ interface AccountRunResult {
     error?: string
 }
 
+interface DesktopPhaseResult {
+    points: number
+    error?: Error
+}
+
 const executionContext = new AsyncLocalStorage<ExecutionContext>()
 
 export function getCurrentContext(): ExecutionContext {
@@ -722,6 +727,8 @@ export class MicrosoftRewardsBot {
 
         let mobileSession: BrowserSession | null = null
         let desktopSession: BrowserSession | null = null
+        let desktopSearchTask: Promise<DesktopPhaseResult> | null = null
+        let desktopCancelled = false
         const edgeBrowsingController = new AbortController()
         let edgeBrowsingTask: Promise<void> | null = null
         let edgeBrowsingFinished = false
@@ -1002,13 +1009,6 @@ export class MicrosoftRewardsBot {
                     if (appAvailable && this.config.workers.doAppPromotions && appData) {
                         if (await this.activities.doAppPromotions(appData)) await this.gapBetweenWorkers()
                     }
-                    if (appAvailable && this.config.workers.doReadToEarn) {
-                        if (await this.activities.doReadToEarn()) await this.gapBetweenWorkers()
-                    }
-                    if (this.config.workers.doPunchCards) {
-                        if (await this.activities.doPunchCardsMobile(data)) await this.gapBetweenWorkers()
-                    }
-
                     const plan = await this.searchManager.getSearchPoints()
                     const doMobileSearch = plan.doMobile
                     const doDesktopSearch = plan.doDesktop
@@ -1022,7 +1022,84 @@ export class MicrosoftRewardsBot {
                         this.fingerprintDesktop = await this.browserFactory.generateFingerprint(false)
                     }
 
-                    if (parallel && !apiSearch && doMobileSearch && doDesktopSearch && !desktopPrewarmFailed) {
+                    const overlapReadingWithDesktop =
+                        parallel &&
+                        !apiSearch &&
+                        doDesktopSearch &&
+                        !desktopPrewarmFailed &&
+                        appAvailable &&
+                        this.config.workers.doReadToEarn
+
+                    const runReadToEarn = async (): Promise<void> => {
+                        if (!appAvailable || !this.config.workers.doReadToEarn) return
+                        if (await this.activities.doReadToEarn()) await this.gapBetweenWorkers()
+                    }
+
+                    const runMobilePunchCards = async (): Promise<void> => {
+                        if (!this.config.workers.doPunchCards) return
+                        if (await this.activities.doPunchCardsMobile(data)) await this.gapBetweenWorkers()
+                    }
+
+                    const runDesktopSearch = async (): Promise<DesktopPhaseResult> => {
+                        let points = 0
+                        let error: Error | undefined
+
+                        try {
+                            await executionContext.run({ isMobile: false, account }, async () => {
+                                desktopSession = await this.createDesktopSession(account)
+                                if (this.config.workers.doPunchCards) await this.activities.doPunchCardsDesktop()
+                                if (doVisualSearch) await this.activities.doVisualSearch(data)
+                            })
+                        } catch (caught) {
+                            error = caught instanceof Error ? caught : new Error(String(caught))
+                        }
+
+                        if (desktopCancelled) {
+                            error = new Error('桌面阶段已取消')
+                        } else if (!error) {
+                            try {
+                                points = await this.searchManager.searchDesktop(account)
+                            } catch (caught) {
+                                error = caught instanceof Error ? caught : new Error(String(caught))
+                            }
+                        }
+
+                        try {
+                            await closeDesktopSession()
+                        } catch (caught) {
+                            this.logger.warn(
+                                'main',
+                                'FLOW',
+                                `桌面会话关闭失败 | ${caught instanceof Error ? caught.message : String(caught)}`
+                            )
+                            error ??= caught instanceof Error ? caught : new Error(String(caught))
+                        }
+
+                        return { points, error }
+                    }
+
+                    if (overlapReadingWithDesktop) {
+                        this.logger.info('main', 'FLOW', '阅读与桌面搜索并行：桌面搜索将在阅读等待期间执行')
+
+                        // 先完成移动端打卡，保证桌面打卡随后执行时能读到最新进度
+                        await runMobilePunchCards()
+                        desktopSearchTask = runDesktopSearch()
+                        await runReadToEarn()
+                    } else {
+                        await runReadToEarn()
+                        await runMobilePunchCards()
+                    }
+
+                    if (desktopSearchTask) {
+                        if (doMobileSearch) mobilePoints = await this.searchManager.searchMobile(account)
+                        if (doBonus) bonusPoints = await this.searchManager.bonusMobile(account)
+                        await closeMobileSession()
+
+                        const result = await desktopSearchTask
+                        desktopSearchTask = null
+                        desktopPoints = result.points
+                        if (result.error) throw result.error
+                    } else if (parallel && !apiSearch && doMobileSearch && doDesktopSearch && !desktopPrewarmFailed) {
                         await executionContext.run({ isMobile: false, account }, async () => {
                             desktopSession = await this.createDesktopSession(account)
                             if (this.config.workers.doPunchCards) await this.activities.doPunchCardsDesktop()
@@ -1115,6 +1192,25 @@ export class MicrosoftRewardsBot {
                 edgeBrowsingController.abort()
                 await edgeBrowsingTask
                 edgeBrowsingTask = null
+            }
+
+            if (desktopSearchTask) {
+                desktopCancelled = true
+                try {
+                    await closeDesktopSession()
+                } catch (error) {
+                    this.logger.debug(
+                        'main',
+                        'CLEANUP',
+                        `桌面端上下文关闭失败 | ${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
+                try {
+                    await desktopSearchTask
+                } catch {
+                    // 桌面任务内部已捕获错误，此处仅等待其退出
+                }
+                desktopSearchTask = null
             }
 
             if (mobileSession) {
