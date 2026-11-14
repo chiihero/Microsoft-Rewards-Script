@@ -15,7 +15,7 @@ export async function sendServerChan(config: WebhookServerChanConfig, content: s
 
     const request: HttpRequestConfig = {
         method: 'POST',
-        url: `https://sctapi.ft07.com/${config.sendKey}.send`,
+        url: `https://sctapi.ftqq.com/${config.sendKey}.send`,
         headers: { 'Content-Type': 'application/json' },
         data: {
             title: config.title ?? 'Microsoft-Rewards-Script',
@@ -30,6 +30,7 @@ export async function sendServerChan(config: WebhookServerChanConfig, content: s
         } catch (err) {
             const status = (err as { response?: { status?: number } })?.response?.status
             if (status === 429) return
+            console.warn(`[ServerChan] Failed to send webhook${status ? ` (HTTP ${status})` : ''}`)
         }
     })
 }
