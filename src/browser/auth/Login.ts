@@ -22,6 +22,7 @@ type LoginState =
     | 'SIGN_IN_METHOD_PICKER'
     | 'PASSKEY_ERROR'
     | 'PASSKEY_VIDEO'
+    | 'FIDO_PASSKEY'
     | 'KMSI_PROMPT'
     | 'LOGGED_IN'
     | 'EMAIL_VERIFICATION_INPUT'
@@ -44,6 +45,17 @@ type SignInMethodOption = {
 
 type SignInMethodType = 'PASSWORD' | 'AUTHENTICATOR' | 'EMAIL' | 'PASSKEY' | 'TOTP' | 'UNKNOWN'
 
+const FIDO_HOSTS = new Set(['login.microsoft.com', 'login.live.com'])
+
+export function isFidoLoginUrl(rawUrl: string): boolean {
+    try {
+        const url = new URL(rawUrl)
+        return FIDO_HOSTS.has(url.hostname.toLowerCase()) && /^\/consumers\/fido(?:\/|$)/i.test(url.pathname)
+    } catch {
+        return false
+    }
+}
+
 export class Login {
     emailLogin: EmailLogin
     passwordlessLogin: PasswordlessLogin
@@ -54,6 +66,7 @@ export class Login {
     private readonly capturedUnknownUrls = new Set<string>()
     private signInMethodsLogged = false
     private passwordlessMethodSelected = false
+    private fidoRecoveryAttempts = 0
 
     private readonly selectors = {
         primaryButton: 'button[data-testid="primaryButton"]',
@@ -96,6 +109,7 @@ export class Login {
             this.capturedUnknownUrls.clear()
             this.signInMethodsLogged = false
             this.passwordlessMethodSelected = false
+            this.fidoRecoveryAttempts = 0
             this.bot.logger.info(this.bot.isMobile, 'LOGIN', '开始登录流程')
 
             await page
@@ -176,13 +190,20 @@ export class Login {
     private async detectCurrentState(page: Page): Promise<LoginState> {
         await page.waitForLoadState('domcontentloaded', { timeout: 3000 }).catch(() => {})
 
-        const url = new URL(page.url())
+        const rawUrl = page.url()
+        const url = new URL(rawUrl)
         const hostname = url.hostname.toLowerCase()
         this.bot.logger.debug(this.bot.isMobile, 'DETECT-STATE', `当前URL: ${hostname}${url.pathname}`)
 
         if (hostname === 'chromewebdata') {
             this.bot.logger.warn(this.bot.isMobile, 'DETECT-STATE', '检测到chromewebdata错误页面')
             return 'CHROMEWEBDATA_ERROR'
+        }
+
+        // FIDO/passkey pages have no stable DOM selector in headless runs; classify by URL
+        if (isFidoLoginUrl(rawUrl)) {
+            this.bot.logger.debug(this.bot.isMobile, 'DETECT-STATE', '检测到FIDO/Passkey登录页')
+            return 'FIDO_PASSKEY'
         }
 
         const isLocked = await this.checkSelector(page, this.selectors.accountLocked)
@@ -765,6 +786,53 @@ export class Login {
                 }
                 await this.waitForIdle(page, 'after Passkey skip')
                 this.bot.logger.info(this.bot.isMobile, 'LOGIN', 'Passkey提示已跳过')
+                return true
+            }
+
+            // FIDO/passkey page - bounded recovery instead of polling UNKNOWN until timeout
+            case 'FIDO_PASSKEY': {
+                this.fidoRecoveryAttempts++
+                const attempt = this.fidoRecoveryAttempts
+                const fidoUrl = page.url()
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'LOGIN',
+                    `检测到FIDO/Passkey登录页（第${attempt}次）: ${fidoUrl}`
+                )
+
+                if (attempt > 2) {
+                    throw new Error(`FIDO/Passkey登录页无法自动退出: ${fidoUrl}`)
+                }
+
+                // Allow a moment for WebAuthn cancellation to redirect on its own
+                await this.waitForIdle(page, 'on FIDO page', 2000)
+                if (!isFidoLoginUrl(page.url())) {
+                    this.bot.logger.info(this.bot.isMobile, 'LOGIN', 'FIDO页面已自行跳转，继续登录流程')
+                    return true
+                }
+
+                if (await this.tryClick(page, this.selectors.secondaryButton, 'Passkey cancel button', 2000)) {
+                    return true
+                }
+                if (await this.tryClick(page, this.selectors.backButton, 'Back button', 1000)) {
+                    return true
+                }
+
+                if (attempt >= 2) {
+                    throw new Error(
+                        '检测到FIDO/Passkey登录页且没有可用的取消/返回入口；自动化无法完成WebAuthn验证。' +
+                            '请从该账户移除Passkey，或改用密码/TOTP登录后重试'
+                    )
+                }
+
+                this.bot.logger.info(this.bot.isMobile, 'LOGIN', '尝试重新进入奖励登录页以绕开Passkey')
+                await page
+                    .goto(URLs.rewards.userLogin, {
+                        waitUntil: 'domcontentloaded',
+                        timeout: 10000
+                    })
+                    .catch(() => {})
+                await this.bot.utils.wait(2000)
                 return true
             }
 
