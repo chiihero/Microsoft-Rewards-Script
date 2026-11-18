@@ -524,6 +524,27 @@ export default class ReactFunc {
         return encodeURIComponent(JSON.stringify(tree))
     }
 
+    // 与浏览器实际发送的一致（2026-11-17 抓包核对，也与上游 v5 一致）：__PAGE__、各层 0、根 16
+    // 国区 2026-11-16 构建起，reportActivity 带 routerStateTree() 的 PAGE/4096 树会回 200 但不给分（#79）
+    public pageRouterStateTree(segment: string): string {
+        const tree = [
+            '',
+            {
+                children: [
+                    '(nav)',
+                    { children: [segment, { children: ['__PAGE__', {}, null, null, 0] }, null, null, 0] },
+                    null,
+                    null,
+                    0
+                ]
+            },
+            null,
+            null,
+            16
+        ]
+        return encodeURIComponent(JSON.stringify(tree))
+    }
+
     public questRouterStateTree(questId: string): string {
         const tree = [
             '',
