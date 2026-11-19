@@ -204,11 +204,16 @@ activity.p=0 | isDuplicate=false | responseBalance=15622 | state=unknown
 
 因此：首次运行判断准确；同一天重跑会误报一次“签到未确认到账”（不影响积分，只影响当次运行的成功标记和通知）。
 
-### 发布（2026-11-20）
+### 发布与部署（2026-11-20）
 
-- `V4-china` 已推送到 origin（`cbf7af7`），标签 `v4.3.4` → `6221c18` 已推送。
+- `V4-china` 已推送到 origin（当前 `ddcc16b`），标签 `v4.3.4` → `6221c18` 已推送。
 - GitHub Release 已发布：`v4.3.4`，说明中记录了根因、实测数据和已知限制。
-- **仍未部署到 123.4**：部署目录是文件快照，需要同步源码后 `docker compose up -d --build`，属于跟踪项 02 的一部分。
+- **已部署到 123.4**（00:53）：源码以 `git archive V4-china` 覆盖部署目录的 `src/` 与 `scripts/`，保留 `config/`、`sessions/`、`.env`、`compose.yaml`。
+  - 新镜像 tag：`microsoft-rewards-script:china-4.3.4`；旧镜像保留为 `china-20261103` 可回滚
+  - 部署目录备份：`/data/1panel/docker/compose/microsoft-rewards-script.bak-20261120`
+  - 启动日志确认：`启动微软奖励脚本 | v4.3.4 | 账户数: 1`，会话恢复 83 个 Cookie
+- `compose.yaml` 的 `RUN_ON_START` 已改为 `false`：容器重启不再立即跑，只在 `CRON_SCHEDULE`（08:00 / 20:00）执行。
+- 部署时启动的立即运行已完成 11/20 的每日任务（+30），在任务间隔被手动终止，未做签到；签到留给 08:00 那次。
 
 ### 剩余（可选）
 
