@@ -4,6 +4,18 @@ import { randomUUID } from 'crypto'
 import { BaseActivity } from '../BaseActivity'
 import { resolveCheckInState, type CheckInState } from './CheckInState'
 
+interface CheckInResponse {
+    code?: number
+    response?: {
+        balance?: number
+        activity?: {
+            p?: number
+            type?: number
+        }
+        isDuplicate?: boolean
+    }
+}
+
 export class DailyCheckIn extends BaseActivity {
     private gainedPoints: number = 0
 
@@ -21,7 +33,7 @@ export class DailyCheckIn extends BaseActivity {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `今日已签到，跳过重复请求 | updatedAt=${before.updatedAt} | currentBalance=${this.oldBalance}`
+                `签到推广已标记完成，跳过重复请求 | reason=${before.reason} | updatedAt=${before.updatedAt} | currentBalance=${this.oldBalance}`
             )
             return false
         }
@@ -29,7 +41,7 @@ export class DailyCheckIn extends BaseActivity {
         this.bot.logger.info(
             this.bot.isMobile,
             'DAILY-CHECK-IN',
-            `开始每日签到 | geo=${this.bot.userData.geoLocale} | currentBalance=${this.oldBalance} | state=${before.status} | expected=${before.remaining ?? '未知'}`
+            `开始每日签到 | geo=${this.bot.userData.geoLocale} | currentBalance=${this.oldBalance} | state=${before.status} | expected=${before.remaining ?? '未知'} | reason=${before.reason}`
         )
         this.markExecuted()
 
@@ -45,49 +57,75 @@ export class DailyCheckIn extends BaseActivity {
                 )
             }
 
-            this.bot.logger.debug(
-                this.bot.isMobile,
-                'DAILY-CHECK-IN',
-                `已收到每日签到响应 | status=${response?.status ?? 'unknown'}`
-            )
-
-            const responseBalance = response.data?.response?.balance
-            const newBalance =
-                typeof responseBalance === 'number' && Number.isFinite(responseBalance)
-                    ? responseBalance
-                    : await this.bot.browser.func.getCurrentPoints()
-            if (!Number.isFinite(newBalance) || newBalance < 0) throw new Error('无法取得有效余额，签到到账状态未知')
-            this.gainedPoints = newBalance - this.oldBalance
+            const payload = response.data?.response
+            const rawAwarded = Number(payload?.activity?.p ?? 0)
+            const awarded = Number.isFinite(rawAwarded) && rawAwarded > 0 ? rawAwarded : 0
+            const isDuplicate = payload?.isDuplicate === true
 
             this.bot.logger.debug(
                 this.bot.isMobile,
                 'DAILY-CHECK-IN',
-                `每日签到后的积分变化 | type=103 | previousBalance=${this.oldBalance} | currentBalance=${newBalance} | pointsGained=${this.gainedPoints}`
+                `已收到每日签到响应 | status=${response.status} | activity.p=${awarded} | activity.type=${payload?.activity?.type ?? '未知'} | isDuplicate=${isDuplicate} | responseBalance=${payload?.balance ?? '未提供'}`
             )
 
-            if (this.gainedPoints > 0) {
+            // 1. 接口直接给出本次活动得分：以此为准，不再依赖余额或状态回读
+            if (awarded > 0) {
+                const balance = await this.readBalance(payload?.balance)
+                const newBalance = Math.max(balance ?? this.oldBalance + awarded, this.oldBalance + awarded)
+                this.gainedPoints = newBalance - this.oldBalance
                 this.bot.userData.currentPoints = newBalance
                 this.bot.userData.gainedPoints = (this.bot.userData.gainedPoints ?? 0) + this.gainedPoints
 
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'DAILY-CHECK-IN',
-                    `每日签到完成 | type=103 | pointsGained=${this.gainedPoints} | currentBalance=${newBalance}`,
+                    `每日签到完成 | type=${payload?.activity?.type ?? 103} | pointsGained=${this.gainedPoints} | currentBalance=${newBalance}`,
                     'green'
                 )
-            } else {
-                const after = await this.getCheckInState()
-                if (after.status !== 'complete') {
-                    throw new Error(
-                        `签到未确认到账 | pointsGained=${this.gainedPoints} | currentBalance=${newBalance} | state=${after.status}`
-                    )
-                }
+                return true
+            }
+
+            // 2. 没有活动得分，但余额有变化：按实际到账记账
+            const balance = await this.readBalance(payload?.balance)
+            const balanceDelta = balance === null ? null : balance - this.oldBalance
+            if (balance !== null && balanceDelta !== null && balanceDelta > 0) {
+                this.gainedPoints = balanceDelta
+                this.bot.userData.currentPoints = balance
+                this.bot.userData.gainedPoints = (this.bot.userData.gainedPoints ?? 0) + this.gainedPoints
+
                 this.bot.logger.info(
                     this.bot.isMobile,
                     'DAILY-CHECK-IN',
-                    `已确认今日签到，本次无新增积分 | pointsGained=0 | currentBalance=${newBalance} | updatedAt=${after.updatedAt}`
+                    `每日签到完成（按余额变化确认） | pointsGained=${this.gainedPoints} | currentBalance=${balance}`,
+                    'green'
+                )
+                return true
+            }
+
+            // 3. 接口标记重复：今天已在其他端签过，不算失败
+            if (isDuplicate) {
+                this.bot.logger.info(
+                    this.bot.isMobile,
+                    'DAILY-CHECK-IN',
+                    `今日签到已完成（接口标记重复） | isDuplicate=true | pointsGained=0 | currentBalance=${balance ?? '未知'}`
+                )
+                return true
+            }
+
+            // 4. 兜底：回读推广状态，只有明确完成才算成功
+            const after = await this.getCheckInState()
+            if (after.status !== 'complete') {
+                throw new Error(
+                    balance === null
+                        ? `无法取得有效余额，签到到账状态未知 | state=${after.status}`
+                        : `签到未确认到账 | pointsGained=0 | currentBalance=${balance} | state=${after.status} | isDuplicate=${isDuplicate}`
                 )
             }
+            this.bot.logger.info(
+                this.bot.isMobile,
+                'DAILY-CHECK-IN',
+                `已确认今日签到，本次无新增积分 | pointsGained=0 | currentBalance=${balance ?? '未知'} | updatedAt=${after.updatedAt}`
+            )
             return true
         } catch (error) {
             this.bot.logger.error(
@@ -96,6 +134,18 @@ export class DailyCheckIn extends BaseActivity {
                 `每日签到出错 | message=${error instanceof Error ? error.message : String(error)}`
             )
             throw error
+        }
+    }
+
+    private async readBalance(responseBalance: number | undefined): Promise<number | null> {
+        if (typeof responseBalance === 'number' && Number.isFinite(responseBalance) && responseBalance >= 0) {
+            return responseBalance
+        }
+        try {
+            const balance = await this.bot.browser.func.getCurrentPoints()
+            return Number.isFinite(balance) && balance >= 0 ? balance : null
+        } catch {
+            return null
         }
     }
 
@@ -156,7 +206,7 @@ export class DailyCheckIn extends BaseActivity {
                 `正在发送每日签到请求 | type=${jsonData.type} | url=${request.url}`
             )
 
-            return this.bot.http.request<{ code?: number; response?: { balance?: number } }>(request)
+            return this.bot.http.request<CheckInResponse>(request)
         } catch (error) {
             this.bot.logger.error(
                 this.bot.isMobile,
