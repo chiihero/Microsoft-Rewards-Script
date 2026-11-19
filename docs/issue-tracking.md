@@ -20,7 +20,7 @@
 | 序号 | 事项 | 类型 | 优先级 | 状态 |
 |---|---|---|---|---|
 | 01 | 生产签到每天被误跳过（#69 + 123.4 部署） | Bug / 生产 | P0 | **待上线** |
-| 02 | 生产构建与版本错位（4.3.2.4 标签跑 4.3.3 代码） | 构建 / 运维 | P1 | 排队 |
+| 02 | 生产构建与版本错位（4.3.2.4 标签跑 4.3.3 代码） | 构建 / 运维 | P1 | **进行中** |
 | 03 | 123.4 宿主机未校时（慢约 5 分钟） | 运维 | P1 | 排队 |
 | 04 | #68 flyout 重试 + measure 容错 | PR | P1 | 排队 |
 | 05 | #76 ServerChan 配置与域名 | PR | P2 | 排队 |
@@ -209,6 +209,38 @@ activity.p=0 | isDuplicate=false | responseBalance=15622 | state=unknown
 1. 决定是否加“同日已签”本地标记（`logs/checkin-state.json`，按邮箱记日期，仅在 `activity.p>0` 后写入），用于消除同日重跑的误报；不加也可接受。
 2. 把新代码部署到 123.4（建议顺带处理跟踪项 02 的版本错位）。
 3. 次日验证：日志出现 `开始每日签到`，`activity.p=5`，`bingapp` 变 `2/7`。
+
+---
+
+## 02 生产构建与版本错位
+
+### 现象
+
+1. 生产日志每次启动都打印 `启动微软奖励脚本 | v4.3.2.4`，但 `dist` 里是 #62 之后的代码（4.3.3 逻辑）。版本号只代表“最后一次 bump”，不代表代码。
+2. `compose.yaml` 镜像写死 `microsoft-rewards-script:china`，每次 `--build` 覆盖同一 tag，无法区分新旧、无法回滚。
+3. 部署目录 `/data/1panel/docker/compose/microsoft-rewards-script` 是 11/03 00:37 的文件快照，不是 git 仓库，无法 `git pull`、无法 diff、无法定位提交。
+4. 本地标签 `v5.0.0` 指向 `b78f616`，远程是 `46a6fda`。
+
+### 网络约束
+
+服务器到 `github.com` 8 秒超时（curl 返回 000），到 `ghcr.io` 返回 401（可达）。因此服务器不能 `git pull`，只能「本地打包 + 服务器构建」或「拉 GHCR 镜像」。
+
+### 已完成（2026-11-19）
+
+- 本地 `v5.0.0` 标签已与远程对齐到 `46a6fda`。
+- `package.json` / `package-lock.json` 从 4.3.3 → **4.3.4**（提交 `6221c18`）。
+- 已打本地标签 `v4.3.4` → `6221c18`。**尚未推送**；若 02 项后续还要加构建信息，推送前会把标签移到最终提交。
+
+### 待做
+
+1. 构建信息：`copyAssets.js` 生成 `dist/build-info.json`（version / commit / builtAt），启动日志打印 `v4.3.4+<sha>`。
+2. `Dockerfile` 增加 `ARG BUILD_COMMIT`，`compose.yaml` 的 image 改为 `microsoft-rewards-script:${IMAGE_TAG:-china}`。
+3. 部署脚本：本地打包（排除 `node_modules/dist/config/sessions/.env/logs`）→ 传服务器 → 带 `BUILD_COMMIT`/`IMAGE_TAG` 构建 → 回读版本校验。
+
+### 验证方式
+
+- 部署后 `[RUN-START]` 显示 `v4.3.4+<sha>`，与 `git rev-parse --short HEAD` 一致。
+- `docker images` 中存在 `microsoft-rewards-script:china-4.3.4`，旧的 `:china` 仍保留可回滚。
 
 ---
 
