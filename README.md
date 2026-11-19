@@ -322,7 +322,7 @@ docker compose restart          # 重启（不重建）
 | `searchSettings.clickRandomResults`       | 点击随机结果链接                  | `true`               | `CONFIG_SEARCH_CLICK_RANDOM`            |
 | `searchSettings.runOnZeroPoints`          | 无剩余搜索积分时仍执行搜索        | `false`              | `CONFIG_SEARCH_RUN_ON_ZERO_POINTS`      |
 | `searchSettings.maxBonusSearches`         | 单次运行最多加成搜索数            | `110`                | `CONFIG_SEARCH_MAX_BONUS_SEARCHES`      |
-| `searchSettings.parallelSearching`        | 桌面/移动搜索并行执行             | `false`              | `CONFIG_SEARCH_PARALLEL`                |
+| `searchSettings.parallelSearching`        | 桌面搜索与移动端任务并行执行      | `false`              | `CONFIG_SEARCH_PARALLEL`                |
 | `searchSettings.clusterSearch`            | Bing 建议聚类扩展主词             | `true`               | `CONFIG_SEARCH_CLUSTER`                 |
 | `searchSettings.queryEngines`             | 查询源数组                        | `["china", "local"]` | `CONFIG_SEARCH_QUERY_ENGINES`           |
 | `searchSettings.searchResultVisitTime`    | 搜索结果页停留时间                | `20sec`              | `CONFIG_SEARCH_VISIT_TIME`              |
@@ -331,6 +331,8 @@ docker compose restart          # 重启（不重建）
 | `searchSettings.chinaApi.appkey`          | gmya.net appkey（解除免费档限流） | `""`                 | `CONFIG_CHINA_API_APPKEY`               |
 
 > 📌 **注**：以上默认值为本仓库 `config.example.json` 的国内防风控调优值（官方上游默认更激进：30sec-1min 间隔、并行开启）。
+>
+> `searchSettings.parallelSearching=true` 时，桌面搜索会在移动端阅读等待期间并行执行，阅读与桌面搜索各自的间隔、进度和失败状态保持不变；关闭时仍按原顺序串行执行。
 
 #### 国内推荐配置
 
