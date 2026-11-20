@@ -180,3 +180,31 @@ test('diagnostics redact emails and do not include a claimed outcome for login p
     assert.match(decision.diagnostics.visibleExcerpt, /\[alias\]/)
     assert.doesNotMatch(decision.diagnostics.visibleExcerpt, /person@example.com/)
 })
+
+test('logged-in CN daily card in progress is claimable and unique', () => {
+    const decision = classifyPrizeDropSnapshot(
+        snapshot({
+            visibleText: '奖品赠送 每天在 Bing 上搜索，看看您是否中奖 正在进行 填写参与表单 获得100积分：安装Rewards扩展程序',
+            ctas: [
+                { tag: 'a', role: 'link', text: '填写参与表单', href: '' },
+                { tag: 'button', role: 'button', text: '每天在 Bing 上搜索，看看您是否中奖正在进行', href: '' },
+                { tag: 'a', role: 'link', text: '获得100积分：安装Rewards扩展程序', href: '' },
+                { tag: 'a', role: 'link', text: '完成参赛表格', href: '' },
+                { tag: 'a', role: 'link', text: '获取您的免费中奖机会填写参与表单', href: '' }
+            ]
+        })
+    )
+    assert.equal(decision.outcome, 'claimable')
+    assert.equal(decision.dailyCta.text, '每天在 Bing 上搜索，看看您是否中奖正在进行')
+})
+
+test('logged-in CN daily card marked completed is already_claimed and is not clicked', () => {
+    const decision = classifyPrizeDropSnapshot(
+        snapshot({
+            visibleText: '每天在 Bing 上搜索，看看您是否中奖 已完成',
+            ctas: [{ tag: 'button', role: 'button', text: '每天在 Bing 上搜索，看看您是否中奖已完成', href: '' }]
+        })
+    )
+    assert.equal(decision.outcome, 'already_claimed')
+    assert.equal(decision.dailyCta, null)
+})

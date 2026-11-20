@@ -49,6 +49,10 @@ export const DAILY_INSTANT_WIN_CTA_TEXTS = [
     '查看你是否成为即时获奖者'
 ] as const
 
+/** Logged-in CN Instant Win card observed on https://rewards.bing.com/sweeps/bonus. */
+const CN_DAILY_INSTANT_WIN_CARD =
+    /^每天在\s*Bing\s*上搜索，看看您是否中奖(?:\s*(正在进行|已完成|已领取|已查看|已参与))?$/
+
 /** Public signed-out login CTAs on /sweeps/bonus. Not daily Instant Win controls. */
 const LOGIN_CTA_TEXTS = [
     'sign in',
@@ -86,7 +90,15 @@ const FORBIDDEN_CTA_PATTERNS: RegExp[] = [
     /official rules/i,
     /官方规则/,
     /^winners$/i,
-    /^中奖者$/
+    /^中奖者$/,
+    /填写参与表单/,
+    /完成参赛表格/,
+    /获取您的免费中奖机会/,
+    /可用积分/,
+    /获得\d+\s*积分/,
+    /赚取\d+\s*积分/,
+    /获取\s*\d+\s*积分/,
+    /获得\s*\d+\s*分/
 ]
 
 const UNAVAILABLE_PATTERNS: RegExp[] = [
@@ -149,14 +161,25 @@ export function redactDiagnostics(text: string, max = 400): string {
     return normalizeVisibleText(cleaned).slice(0, max)
 }
 
+export function dailyInstantWinCtaKind(text: string): 'claimable' | 'already_claimed' | null {
+    const normalized = normalizeVisibleText(text)
+    if (isForbiddenCtaText(normalized)) return null
+    if (DAILY_INSTANT_WIN_CTA_TEXTS.some(label => normalizeVisibleText(label).toLowerCase() === normalized.toLowerCase())) {
+        return 'claimable'
+    }
+    const cn = CN_DAILY_INSTANT_WIN_CARD.exec(normalized)
+    if (!cn) return null
+    const status = cn[1] || ''
+    if (/^(已完成|已领取|已查看|已参与)$/.test(status)) return 'already_claimed'
+    return 'claimable'
+}
+
 export function isDailyInstantWinCtaText(text: string): boolean {
-    const normalized = normalizeVisibleText(text).toLowerCase()
-    return DAILY_INSTANT_WIN_CTA_TEXTS.some(label => normalizeVisibleText(label).toLowerCase() === normalized)
+    return dailyInstantWinCtaKind(text) !== null
 }
 
 export function isForbiddenCtaText(text: string): boolean {
     const normalized = normalizeVisibleText(text)
-    if (isDailyInstantWinCtaText(normalized)) return false
     return FORBIDDEN_CTA_PATTERNS.some(pattern => pattern.test(normalized))
 }
 
@@ -168,11 +191,17 @@ export function isLoginCtaText(text: string): boolean {
 export function selectDailyInstantWinCta(ctas: PageCta[]): {
     cta: PageCta | null
     reason: 'unique' | 'none' | 'ambiguous'
+    kind: 'claimable' | 'already_claimed' | null
 } {
-    const matches = ctas.filter(cta => isDailyInstantWinCtaText(cta.text) && !isForbiddenCtaText(cta.text))
-    if (matches.length === 1) return { cta: matches[0] ?? null, reason: 'unique' }
-    if (matches.length > 1) return { cta: null, reason: 'ambiguous' }
-    return { cta: null, reason: 'none' }
+    const matches = ctas
+        .map(cta => ({ cta, kind: dailyInstantWinCtaKind(cta.text) }))
+        .filter(item => item.kind !== null)
+    if (matches.length === 1) {
+        const item = matches[0]
+        return { cta: item?.cta ?? null, reason: 'unique', kind: item?.kind ?? null }
+    }
+    if (matches.length > 1) return { cta: null, reason: 'ambiguous', kind: null }
+    return { cta: null, reason: 'none', kind: null }
 }
 
 function hasPattern(text: string, patterns: RegExp[]): boolean {
@@ -240,7 +269,16 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
-    if (selected.cta) {
+    if (selected.kind === 'already_claimed') {
+        return {
+            outcome: 'already_claimed',
+            reason: 'the official daily Instant Win control is visible as already completed today',
+            dailyCta: null,
+            diagnostics
+        }
+    }
+
+    if (selected.cta && selected.kind === 'claimable') {
         return {
             outcome: 'claimable',
             reason: 'unique official daily Instant Win control is visible',
