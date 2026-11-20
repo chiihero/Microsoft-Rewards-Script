@@ -278,8 +278,10 @@ export class MicrosoftRewardsBot {
             `启动微软奖励脚本 | v${pkg.version} | 账户数: ${totalAccounts} | 集群数: ${this.config.clusters}`
         )
 
+        const dailyInstantWinOnly = process.env.DAILY_INSTANT_WIN_ONLY === '1'
+
         if (this.config.clusters <= 1 || cluster.isPrimary) {
-            if (shouldSkipRunToday()) {
+            if (!dailyInstantWinOnly && shouldSkipRunToday()) {
                 this.logger.info(
                     'main',
                     'RUN-SKIP',
@@ -288,7 +290,13 @@ export class MicrosoftRewardsBot {
                 process.exit(0)
             }
 
-            await waitForQuietHours()
+            if (!dailyInstantWinOnly) {
+                await waitForQuietHours()
+            }
+        }
+
+        if (dailyInstantWinOnly) {
+            this.logger.info('main', 'DAILY-INSTANT-WIN', '仅运行每日 Instant Win，跳过搜索和其他积分任务')
         }
 
         // 主进程启动时检查 ClawBot 凭证：缺失则弹出扫码登录（worker 不重复触发）
@@ -675,6 +683,71 @@ export class MicrosoftRewardsBot {
         await this.utils.wait(delayMs)
     }
 
+    private async runDailyInstantWinForAccount(account: Account): Promise<void> {
+        if (this.config.workers.doDailyInstantWin === false) return
+
+        const hasPage =
+            (this.mainDesktopPage && !this.mainDesktopPage.isClosed()) ||
+            (this.mainMobilePage && !this.mainMobilePage.isClosed())
+        if (hasPage) {
+            try {
+                await this.activities.doDailyInstantWin()
+            } catch (error) {
+                this.logger.warn(
+                    'main',
+                    'DAILY-INSTANT-WIN',
+                    `每日 Instant Win 未阻断后续任务 | ${error instanceof Error ? error.message : String(error)}`
+                )
+            }
+            return
+        }
+
+        const opened: { session: BrowserSession | null } = { session: null }
+        try {
+            await executionContext.run({ isMobile: false, account }, async () => {
+                opened.session = await this.createDesktopSession(account)
+                await this.activities.doDailyInstantWin()
+            })
+        } catch (error) {
+            this.logger.warn(
+                'main',
+                'DAILY-INSTANT-WIN',
+                `每日 Instant Win 未阻断后续任务 | ${error instanceof Error ? error.message : String(error)}`
+            )
+        } finally {
+            if (opened.session) {
+                const session = opened.session
+                await executionContext.run({ isMobile: false, account }, async () => {
+                    await this.browser.func.checkpointActiveSession('PRE-BROWSER-CLOSE')
+                    await this.browser.func.closeBrowser(session.context, account.email)
+                })
+            }
+        }
+    }
+
+    private async mainDailyInstantWinOnly(account: Account): Promise<AccountRunResult> {
+        this.accessToken = ''
+        this.cookies = { mobile: [], desktop: [] }
+        this.fingerprintMobile = undefined
+        this.fingerprintDesktop = undefined
+        const opened: { session: BrowserSession | null } = { session: null }
+        try {
+            return await executionContext.run({ isMobile: false, account }, async () => {
+                opened.session = await this.createDesktopSession(account)
+                await this.activities.doDailyInstantWin()
+                return { initialPoints: this.userData.currentPoints ?? 0, collectedPoints: 0 }
+            })
+        } finally {
+            if (opened.session) {
+                const session = opened.session
+                await executionContext.run({ isMobile: false, account }, async () => {
+                    await this.browser.func.checkpointActiveSession('PRE-BROWSER-CLOSE')
+                    await this.browser.func.closeBrowser(session.context, account.email)
+                })
+            }
+        }
+    }
+
     async createDesktopSession(account: Account): Promise<BrowserSession> {
         const session = await this.browserFactory.createBrowser(account)
         this.mainDesktopPage = await session.context.newPage()
@@ -692,6 +765,10 @@ export class MicrosoftRewardsBot {
     async Main(account: Account): Promise<AccountRunResult> {
         const accountEmail = account.email
         this.logger.info('main', 'FLOW', `开始为 ${accountEmail} 创建会话`)
+
+        if (process.env.DAILY_INSTANT_WIN_ONLY === '1') {
+            return await this.mainDailyInstantWinOnly(account)
+        }
 
         this.accessToken = ''
         this.cookies = { mobile: [], desktop: [] }
@@ -1081,6 +1158,10 @@ export class MicrosoftRewardsBot {
                         mobilePoints + desktopPoints + bonusPoints
                     }`
                 )
+
+                if (this.config.workers.doDailyInstantWin !== false) {
+                    await this.runDailyInstantWinForAccount(account)
+                }
 
                 if (this.config.workers.doClaimBonusPoints) {
                     if (this.nextActions.reportClaimAllPoints) await this.gapBetweenWorkers()

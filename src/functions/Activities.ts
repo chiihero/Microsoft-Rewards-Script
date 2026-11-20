@@ -3,6 +3,8 @@ import type { MicrosoftRewardsBot } from '../index'
 import { DailySet } from './activities/rewards/DailySet'
 import { MorePromotions } from './activities/rewards/MorePromotions'
 import { PunchCards } from './activities/rewards/PunchCards'
+import { DailyInstantWin } from './activities/rewards/DailyInstantWin'
+import type { DailyInstantWinResult } from './activities/rewards/DailyInstantWin'
 
 import { DailyCheckIn } from './activities/app/DailyCheckIn'
 import { ReadToEarn } from './activities/app/ReadToEarn'
@@ -86,6 +88,11 @@ export default class Activities {
         const activity = new UrlReward(this.bot)
         await activity.doUrlReward(promotion)
         return activity.didExecute()
+    }
+
+    doDailyInstantWin = async (): Promise<DailyInstantWinResult> => {
+        const activity = new DailyInstantWin(this.bot)
+        return await activity.run()
     }
 
     doClaimBonusPoints = async (): Promise<void> => {
