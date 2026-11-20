@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 /**
  * Visible-state helpers for the Total Prize Drop daily Instant Win page.
  * Only official/public wording is used as click or receipt targets.
@@ -21,6 +23,10 @@ export interface PageCta {
     role: string
     text: string
     href: string
+    inForm?: boolean
+    formAction?: string
+    inputType?: string
+    contextText?: string
 }
 
 export interface PrizeDropSnapshot {
@@ -49,17 +55,20 @@ export const DAILY_INSTANT_WIN_CTA_TEXTS = [
     '查看你是否成为即时获奖者'
 ] as const
 
-/** Logged-in CN Instant Win card observed on https://rewards.bing.com/sweeps/bonus. */
+/**
+ * Logged-in CN outer marketing / HVA card. This is NOT an official Check-winner
+ * control and must never be selected for the daily auto-claim click.
+ */
 const CN_DAILY_INSTANT_WIN_CARD =
     /^每天在\s*Bing\s*上搜索，看看您是否中奖(?:\s*(正在进行|已完成|已领取|已查看|已参与))?$/
 
-/** Public signed-out login CTAs on /sweeps/bonus. Not daily Instant Win controls. */
-const LOGIN_CTA_TEXTS = [
-    'sign in',
-    '登录',
-    'to claim your free entry, sign in',
-    '要领取您的免费参与资格，请登录'
-] as const
+/** href / form actions that mean signup, login, or legal docs — never auto-click. */
+const UNSAFE_DAILY_CTA_HREF =
+    /\/sweeps\/signup|aka\.ms\/win-signup|\/auth\/login|login\.live\.com|login\.microsoftonline\.com|official.?rules|aka\.ms\/win-IW-Rules|aka\.ms\/win-SW-Rules/i
+
+/** CTA-local entry-form or additional-terms context. Not applied to the whole page. */
+const UNSAFE_DAILY_CTA_CONTEXT =
+    /填写报名表|填写参与表单|完成(?:您的)?参赛表格|官方规则|权益说明|查看条款|立即参与|officialRulesAccepted|entry form|additional terms|official rules/i
 
 /** One-time entry / bonus-activity CTAs that must never be clicked. */
 const FORBIDDEN_CTA_PATTERNS: RegExp[] = [
@@ -161,21 +170,47 @@ export function redactDiagnostics(text: string, max = 400): string {
     return normalizeVisibleText(cleaned).slice(0, max)
 }
 
-export function dailyInstantWinCtaKind(text: string): 'claimable' | 'already_claimed' | null {
+/** Stable anonymous folder name. Never use a raw username or email in evidence paths. */
+export function accountEvidenceAlias(userName: string | undefined | null): string {
+    const source = String(userName || 'account')
+    return `acct-${createHash('sha256').update(source).digest('hex').slice(0, 12)}`
+}
+
+export function isOuterDailyMarketingCardText(text: string): boolean {
+    return CN_DAILY_INSTANT_WIN_CARD.test(normalizeVisibleText(text))
+}
+
+export function isOfficialDailyCheckWinnerText(text: string): boolean {
+    const normalized = normalizeVisibleText(text)
+    return DAILY_INSTANT_WIN_CTA_TEXTS.some(
+        label => normalizeVisibleText(label).toLowerCase() === normalized.toLowerCase()
+    )
+}
+
+export function dailyInstantWinCtaKind(text: string): 'claimable' | null {
     const normalized = normalizeVisibleText(text)
     if (isForbiddenCtaText(normalized)) return null
-    if (DAILY_INSTANT_WIN_CTA_TEXTS.some(label => normalizeVisibleText(label).toLowerCase() === normalized.toLowerCase())) {
-        return 'claimable'
-    }
-    const cn = CN_DAILY_INSTANT_WIN_CARD.exec(normalized)
-    if (!cn) return null
-    const status = cn[1] || ''
-    if (/^(已完成|已领取|已查看|已参与)$/.test(status)) return 'already_claimed'
-    return 'claimable'
+    if (isOuterDailyMarketingCardText(normalized)) return null
+    if (isOfficialDailyCheckWinnerText(normalized)) return 'claimable'
+    return null
 }
 
 export function isDailyInstantWinCtaText(text: string): boolean {
-    return dailyInstantWinCtaKind(text) !== null
+    return dailyInstantWinCtaKind(text) === 'claimable'
+}
+
+export function isUnsafeDailyClaimCta(cta: PageCta): boolean {
+    const href = `${cta.href || ''} ${cta.formAction || ''}`
+    if (UNSAFE_DAILY_CTA_HREF.test(href)) return true
+    if (cta.inForm) return true
+    if ((cta.inputType || '').toLowerCase() === 'submit') return true
+    const context = normalizeVisibleText(`${cta.text} ${cta.contextText || ''}`)
+    if (UNSAFE_DAILY_CTA_CONTEXT.test(context)) return true
+    return false
+}
+
+export function isSafeOfficialDailyClaimCta(cta: PageCta): boolean {
+    return dailyInstantWinCtaKind(cta.text) === 'claimable' && !isUnsafeDailyClaimCta(cta)
 }
 
 export function isForbiddenCtaText(text: string): boolean {
@@ -185,17 +220,23 @@ export function isForbiddenCtaText(text: string): boolean {
 
 export function isLoginCtaText(text: string): boolean {
     const normalized = normalizeVisibleText(text).toLowerCase()
-    return LOGIN_CTA_TEXTS.some(label => normalized === label || normalized.includes(label))
+    const exact = new Set(['sign in', 'signin', 'log in', 'login', '登录'])
+    if (exact.has(normalized)) return true
+    const phrases = [
+        'to claim your free entry, sign in',
+        '要领取您的免费参与资格，请登录'
+    ]
+    return phrases.some(label => normalized.includes(label))
 }
 
 export function selectDailyInstantWinCta(ctas: PageCta[]): {
     cta: PageCta | null
     reason: 'unique' | 'none' | 'ambiguous'
-    kind: 'claimable' | 'already_claimed' | null
+    kind: 'claimable' | null
 } {
     const matches = ctas
-        .map(cta => ({ cta, kind: dailyInstantWinCtaKind(cta.text) }))
-        .filter(item => item.kind !== null)
+        .filter(cta => isSafeOfficialDailyClaimCta(cta))
+        .map(cta => ({ cta, kind: 'claimable' as const }))
     if (matches.length === 1) {
         const item = matches[0]
         return { cta: item?.cta ?? null, reason: 'unique', kind: item?.kind ?? null }
@@ -224,8 +265,7 @@ export function detectExpandedDetailsPanel(before: PrizeDropSnapshot, after: Pri
     const addedDetails = added.filter(text =>
         EXPANDED_DETAILS_CTA_TEXTS.some(label => text === label || text.includes(label))
     )
-    const afterDecision = classifyPrizeDropSnapshot(after)
-    return addedDetails.length > 0 && afterDecision.outcome === 'claimable'
+    return addedDetails.length > 0
 }
 
 export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantWinDecision {
@@ -285,16 +325,7 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
-    if (selected.kind === 'already_claimed') {
-        return {
-            outcome: 'already_claimed',
-            reason: 'the official daily Instant Win control is visible as already completed today',
-            dailyCta: null,
-            diagnostics
-        }
-    }
-
-    if (selected.cta && selected.kind === 'claimable') {
+    if (selected.cta && selected.kind === 'claimable' && isSafeOfficialDailyClaimCta(selected.cta)) {
         return {
             outcome: 'claimable',
             reason: 'unique official daily Instant Win control is visible',
@@ -303,7 +334,7 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
-    const hasLoginCta = snapshot.ctas.some(cta => isLoginCtaText(cta.text) || looksLikeLoginUrl(cta.href))
+    const hasLoginCta = snapshot.ctas.some(cta => isLoginCtaText(cta.text))
     if (hasLoginCta || looksLikeLoginUrl(url)) {
         return {
             outcome: 'login_required',
@@ -321,6 +352,22 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
     }
 }
 
+function enclosingFormMeta(html: string, index: number): { inForm: boolean; formAction: string } {
+    const before = html.slice(0, index)
+    const lastForm = /<form\b([^>]*)>/gi
+    let formAttrs = ''
+    let formIndex = -1
+    for (const match of before.matchAll(lastForm)) {
+        formIndex = match.index ?? -1
+        formAttrs = match[1] ?? ''
+    }
+    if (formIndex < 0) return { inForm: false, formAction: '' }
+    const close = before.toLowerCase().lastIndexOf('</form>')
+    if (close > formIndex) return { inForm: false, formAction: '' }
+    const action = /action\s*=\s*["']([^"']*)["']/i.exec(formAttrs)?.[1] ?? ''
+    return { inForm: true, formAction: action }
+}
+
 export function extractCtasFromHtml(html: string): PageCta[] {
     const ctas: PageCta[] = []
     const pattern = /<(a|button)([^>]*)>([\s\S]*?)<\/\1>/gi
@@ -334,7 +381,9 @@ export function extractCtasFromHtml(html: string): PageCta[] {
         if (!text || text.length > 180) continue
         const href = /href\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? ''
         const role = /role\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? (tag === 'button' ? 'button' : 'link')
-        ctas.push({ tag, role, text, href })
+        const inputType = /type\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? ''
+        const form = enclosingFormMeta(html, match.index ?? 0)
+        ctas.push({ tag, role, text, href, inForm: form.inForm, formAction: form.formAction, inputType })
     }
     return ctas
 }

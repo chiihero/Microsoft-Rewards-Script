@@ -6,9 +6,13 @@ const test = require('node:test')
 require('../../node_modules/ts-node/register/transpile-only.js')
 
 const {
+    accountEvidenceAlias,
     classifyPrizeDropSnapshot,
     isDailyInstantWinCtaText,
     isForbiddenCtaText,
+    isOuterDailyMarketingCardText,
+    isSafeOfficialDailyClaimCta,
+    isUnsafeDailyClaimCta,
     selectDailyInstantWinCta,
     snapshotFromHtml,
     detectExpandedDetailsPanel,
@@ -182,7 +186,7 @@ test('diagnostics redact emails and do not include a claimed outcome for login p
     assert.doesNotMatch(decision.diagnostics.visibleExcerpt, /person@example.com/)
 })
 
-test('logged-in CN daily card in progress is claimable and unique', () => {
+test('logged-in CN outer daily card in progress is never claimable', () => {
     const decision = classifyPrizeDropSnapshot(
         snapshot({
             visibleText: '奖品赠送 每天在 Bing 上搜索，看看您是否中奖 正在进行 填写参与表单 获得100积分：安装Rewards扩展程序',
@@ -195,19 +199,26 @@ test('logged-in CN daily card in progress is claimable and unique', () => {
             ]
         })
     )
-    assert.equal(decision.outcome, 'claimable')
-    assert.equal(decision.dailyCta.text, '每天在 Bing 上搜索，看看您是否中奖正在进行')
+    assert.equal(isOuterDailyMarketingCardText('每天在 Bing 上搜索，看看您是否中奖正在进行'), true)
+    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.dailyCta, null)
+    assert.notEqual(decision.outcome, 'claimable')
+    assert.notEqual(decision.outcome, 'already_claimed')
+    assert.notEqual(decision.outcome, 'claimed')
 })
 
-test('logged-in CN daily card marked completed is already_claimed and is not clicked', () => {
+test('undated CN outer card marked completed is not already_claimed', () => {
     const decision = classifyPrizeDropSnapshot(
         snapshot({
             visibleText: '每天在 Bing 上搜索，看看您是否中奖 已完成',
             ctas: [{ tag: 'button', role: 'button', text: '每天在 Bing 上搜索，看看您是否中奖已完成', href: '' }]
         })
     )
-    assert.equal(decision.outcome, 'already_claimed')
+    assert.equal(decision.outcome, 'unverified')
     assert.equal(decision.dailyCta, null)
+    assert.notEqual(decision.outcome, 'already_claimed')
+    assert.notEqual(decision.outcome, 'claimable')
+    assert.notEqual(decision.outcome, 'claimed')
 })
 
 const landingCtas = [
@@ -226,14 +237,16 @@ const afterPanelCtas = [
     { tag: 'a', role: 'link', text: '查看条款', href: '' }
 ]
 
-test('real CN landing page stays claimable and is not treated as already claimed', () => {
+test('real CN landing page with only the outer card is unverified, not claimed', () => {
     const decision = classifyPrizeDropSnapshot(
         snapshot({
             visibleText: '奖品赠送 每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。完成参赛表格 获取您的免费中奖机会 填写参与表单',
             ctas: landingCtas
         })
     )
-    assert.equal(decision.outcome, 'claimable')
+    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.dailyCta, null)
+    assert.notEqual(decision.outcome, 'claimable')
     assert.notEqual(decision.outcome, 'already_claimed')
     assert.notEqual(decision.outcome, 'claimed')
 })
@@ -247,10 +260,12 @@ test('opening the CN details panel is unverified, not a win or already-claimed r
         visibleText: '每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。填写报名表 权益说明 查看条款',
         ctas: afterPanelCtas
     })
-    assert.equal(classifyPrizeDropSnapshot(after).outcome, 'claimable')
+    assert.equal(classifyPrizeDropSnapshot(after).outcome, 'unverified')
+    assert.equal(classifyPrizeDropSnapshot(after).dailyCta, null)
     assert.equal(detectExpandedDetailsPanel(before, after), true)
     assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'claimed')
     assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'already_claimed')
+    assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'claimable')
 })
 
 test('unverified outcomes stay retryable and do not become already_claimed', () => {
@@ -264,6 +279,177 @@ test('unverified outcomes stay retryable and do not become already_claimed', () 
     }
     assert.equal(activity.isTerminal('unverified'), false)
     assert.equal(activity.isTerminal('error'), false)
+    assert.equal(activity.isTerminal('ineligible'), false)
+    assert.equal(activity.isTerminal('login_required'), false)
+    assert.equal(activity.isTerminal('unavailable'), false)
+    assert.equal(activity.isTerminal('claimable'), false)
     assert.equal(activity.isTerminal('claimed'), true)
     assert.equal(activity.isTerminal('already_claimed'), true)
+})
+
+test('authorization: official Check-winner linked to signup is not claimable', () => {
+    const decision = decisionFromHtml('sweeps-check-winner-signup-href.html')
+    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.dailyCta, null)
+    const cta = { tag: 'a', role: 'link', text: "Check if you're a winner", href: 'https://rewards.bing.com/sweeps/signup' }
+    assert.equal(isUnsafeDailyClaimCta(cta), true)
+    assert.equal(isSafeOfficialDailyClaimCta(cta), false)
+    assert.equal(selectDailyInstantWinCta([cta]).reason, 'none')
+})
+
+test('authorization: Check-winner in an entry-form or additional-terms context is not claimable', () => {
+    const decision = decisionFromHtml('sweeps-check-winner-in-form.html')
+    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.dailyCta, null)
+    const inForm = {
+        tag: 'button',
+        role: 'button',
+        text: "Check if you're a winner",
+        href: '',
+        inForm: true,
+        formAction: '/sweeps/signup',
+        inputType: 'submit',
+        contextText: 'Additional terms and official rules must be accepted.'
+    }
+    assert.equal(isUnsafeDailyClaimCta(inForm), true)
+    assert.equal(isSafeOfficialDailyClaimCta(inForm), false)
+    const termsContext = {
+        tag: 'button',
+        role: 'button',
+        text: "Check if you're a winner",
+        href: '',
+        contextText: '填写报名表 权益说明 查看条款'
+    }
+    assert.equal(isUnsafeDailyClaimCta(termsContext), true)
+    assert.equal(isSafeOfficialDailyClaimCta(termsContext), false)
+})
+
+test('authorization: signup / 报名条款 page is never a daily claim target', () => {
+    const decision = decisionFromHtml('sweeps-signup-form-zh.html', 'https://rewards.bing.com/sweeps/signup')
+    assert.notEqual(decision.outcome, 'claimable')
+    assert.notEqual(decision.outcome, 'claimed')
+    assert.notEqual(decision.outcome, 'already_claimed')
+    assert.equal(decision.dailyCta, null)
+    assert.ok(['unverified', 'login_required'].includes(decision.outcome))
+})
+
+test('explicit already-used-today receipt is still already_claimed; undated 已完成 is not', () => {
+    const dated = classifyPrizeDropSnapshot(
+        snapshot({ visibleText: "You've already played today. Come back tomorrow to try again.", ctas: [] })
+    )
+    const undated = classifyPrizeDropSnapshot(
+        snapshot({
+            visibleText: '活动状态：已完成',
+            ctas: [{ tag: 'button', role: 'button', text: '每天在 Bing 上搜索，看看您是否中奖已完成', href: '' }]
+        })
+    )
+    assert.equal(dated.outcome, 'already_claimed')
+    assert.equal(undated.outcome, 'unverified')
+    assert.notEqual(undated.outcome, 'already_claimed')
+})
+
+test('account evidence alias is stable and does not contain the username', () => {
+    const alias = accountEvidenceAlias('SecretUser@example.com')
+    assert.match(alias, /^acct-[a-f0-9]{12}$/)
+    assert.equal(alias, accountEvidenceAlias('SecretUser@example.com'))
+    assert.doesNotMatch(alias, /SecretUser/i)
+    assert.doesNotMatch(alias, /example/)
+    assert.notEqual(alias, accountEvidenceAlias('other-user'))
+})
+
+test('error and unverified results are not cached as today-complete on retry', async () => {
+    const DailyInstantWin = require('../../src/functions/activities/rewards/DailyInstantWin.ts').DailyInstantWin
+    const activity = Object.create(DailyInstantWin.prototype)
+    activity.isTerminal = DailyInstantWin.prototype.isTerminal
+    activity.finish = DailyInstantWin.prototype.finish
+    activity.logDecision = () => {}
+    activity.markExecuted = () => {}
+    activity.lastResult = {
+        outcome: 'error',
+        reason: 'temporary failure',
+        clicked: false,
+        diagnostics: { url: TOTAL_PRIZE_DROP_URL, ctaTexts: [], visibleExcerpt: '' }
+    }
+    assert.equal(activity.isTerminal(activity.lastResult.outcome), false)
+    let ran = false
+    activity.getActivePage = () => {
+        ran = true
+        return null
+    }
+    activity.bot = { isMobile: false, logger: { info() {}, warn() {} }, userData: { geoLocale: 'CN' } }
+    const result = await DailyInstantWin.prototype.run.call(activity)
+    assert.equal(ran, true)
+    assert.equal(result.outcome, 'error')
+    assert.equal(result.clicked, false)
+    assert.equal(activity.isTerminal(result.outcome), false)
+})
+
+test('DIAGNOSE never dismisses popups, never clicks, and never submits', async () => {
+    const DailyInstantWin = require('../../src/functions/activities/rewards/DailyInstantWin.ts').DailyInstantWin
+    const activity = Object.create(DailyInstantWin.prototype)
+    let dismissCalls = 0
+    let clickCalls = 0
+    let submitCalls = 0
+    let artifacts = 0
+    activity.lastResult = null
+    activity.isTerminal = DailyInstantWin.prototype.isTerminal
+    activity.finish = DailyInstantWin.prototype.finish
+    activity.logDecision = () => {}
+    activity.markExecuted = () => {}
+    activity.saveDiagnoseArtifacts = async () => {
+        artifacts += 1
+    }
+    activity.clickOfficialDailyCta = async () => {
+        clickCalls += 1
+        return true
+    }
+    activity.captureSnapshot = async () =>
+        snapshot({
+            visibleText: 'Instant Win',
+            ctas: [{ tag: 'button', role: 'button', text: "Check if you're a winner", href: '' }]
+        })
+    const page = {
+        url: () => TOTAL_PRIZE_DROP_URL,
+        goto: async () => {},
+        click: async () => {
+            clickCalls += 1
+        },
+        locator: () => ({
+            filter: () => ({ count: async () => 1, first: () => ({ click: async () => { clickCalls += 1 } }) })
+        })
+    }
+    activity.getActivePage = () => page
+    activity.bot = {
+        isMobile: false,
+        userData: { geoLocale: 'CN', userName: 'SecretUser' },
+        logger: { info() {}, warn() {} },
+        browser: {
+            utils: {
+                tryDismissAllMessages: async () => {
+                    dismissCalls += 1
+                },
+                acceptButton: async () => {
+                    clickCalls += 1
+                }
+            }
+        },
+        utils: { wait: async () => {}, randomDelay: () => 1 },
+        mainDesktopPage: page
+    }
+    const previous = process.env.DAILY_INSTANT_WIN_DIAGNOSE
+    process.env.DAILY_INSTANT_WIN_DIAGNOSE = '1'
+    try {
+        const result = await DailyInstantWin.prototype.run.call(activity)
+        assert.equal(result.outcome, 'unverified')
+        assert.equal(result.clicked, false)
+        assert.match(result.reason, /diagnose-only/)
+        assert.equal(dismissCalls, 0)
+        assert.equal(clickCalls, 0)
+        assert.equal(submitCalls, 0)
+        assert.equal(artifacts, 1)
+        assert.equal(activity.isTerminal(result.outcome), false)
+    } finally {
+        if (previous === undefined) delete process.env.DAILY_INSTANT_WIN_DIAGNOSE
+        else process.env.DAILY_INSTANT_WIN_DIAGNOSE = previous
+    }
 })

@@ -1,11 +1,12 @@
 import type { Page } from 'patchright'
 import { BaseActivity } from '../BaseActivity'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+    accountEvidenceAlias,
     classifyPrizeDropSnapshot,
     detectExpandedDetailsPanel,
-    isDailyInstantWinCtaText,
+    isSafeOfficialDailyClaimCta,
     redactDiagnostics,
     TOTAL_PRIZE_DROP_URL,
     type InstantWinDecision,
@@ -54,21 +55,29 @@ export class DailyInstantWin extends BaseActivity {
         }
 
         try {
+            const diagnose = process.env.DAILY_INSTANT_WIN_DIAGNOSE === '1'
+            const targetUrl = diagnose
+                ? process.env.DAILY_INSTANT_WIN_DIAGNOSE_URL?.trim() || TOTAL_PRIZE_DROP_URL
+                : TOTAL_PRIZE_DROP_URL
+            const diagnoseStage = process.env.DAILY_INSTANT_WIN_DIAGNOSE_STAGE?.trim() || 'landing'
             this.bot.logger.info(
                 this.bot.isMobile,
                 'DAILY-INSTANT-WIN',
-                `打开每日 Instant Win 页面 | url=${TOTAL_PRIZE_DROP_URL} | geo=${this.bot.userData.geoLocale}`
+                `打开每日 Instant Win 页面 | url=${targetUrl} | geo=${this.bot.userData.geoLocale} | diagnose=${diagnose}`
             )
-            await page.goto(TOTAL_PRIZE_DROP_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
-            await this.bot.browser.utils.tryDismissAllMessages(page)
+            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+            // Strict diagnose is capture-only: never dismiss popups, never click, never submit.
+            if (!diagnose) {
+                await this.bot.browser.utils.tryDismissAllMessages(page)
+            }
             await this.bot.utils.wait(this.bot.utils.randomDelay(1500, 3000))
 
             const before = await this.captureSnapshot(page)
             const decision = classifyPrizeDropSnapshot(before)
             this.logDecision('page', decision)
 
-            if (process.env.DAILY_INSTANT_WIN_DIAGNOSE === '1') {
-                await this.saveDiagnoseArtifacts(page, before, 'landing')
+            if (diagnose) {
+                await this.saveDiagnoseArtifacts(page, before, diagnoseStage)
                 return this.finish({
                     outcome: 'unverified',
                     reason: 'diagnose-only capture, no click',
@@ -81,6 +90,15 @@ export class DailyInstantWin extends BaseActivity {
                 return this.finish({
                     outcome: decision.outcome,
                     reason: decision.reason,
+                    clicked: false,
+                    diagnostics: decision.diagnostics
+                })
+            }
+
+            if (!isSafeOfficialDailyClaimCta(decision.dailyCta)) {
+                return this.finish({
+                    outcome: 'unverified',
+                    reason: 'daily control failed href/form/terms safety checks; not clicked',
                     clicked: false,
                     diagnostics: decision.diagnostics
                 })
@@ -182,12 +200,18 @@ export class DailyInstantWin extends BaseActivity {
                 document.querySelectorAll('button, a, [role="button"], [role="link"]')
             )
                 .filter(el => visible(el))
-                .map(el => ({
-                    tag: el.tagName.toLowerCase(),
-                    role: el.getAttribute('role') || (el.tagName.toLowerCase() === 'button' ? 'button' : 'link'),
-                    text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
-                    href: el.getAttribute('href') || ''
-                }))
+                .map(el => {
+                    const form = el.closest('form')
+                    return {
+                        tag: el.tagName.toLowerCase(),
+                        role: el.getAttribute('role') || (el.tagName.toLowerCase() === 'button' ? 'button' : 'link'),
+                        text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+                        href: el.getAttribute('href') || '',
+                        inForm: Boolean(form),
+                        formAction: form?.getAttribute('action') || '',
+                        inputType: (el as HTMLElement).getAttribute('type') || ''
+                    }
+                })
                 .filter(cta => Boolean(cta.text) && cta.text.length <= 180)
             return {
                 url: location.href,
@@ -217,16 +241,37 @@ export class DailyInstantWin extends BaseActivity {
             )
             return false
         }
-        const text = normalizeForCompare(await locator.first().innerText())
-        if (!isDailyInstantWinCtaText(text)) {
+        const handle = locator.first()
+        const live = await handle.evaluate(el => {
+            const form = (el as Element).closest('form')
+            return {
+                text: ((el as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim(),
+                href: (el as HTMLElement).getAttribute('href') || '',
+                inForm: Boolean(form),
+                formAction: form?.getAttribute('action') || '',
+                inputType: (el as HTMLElement).getAttribute('type') || '',
+                tag: (el as HTMLElement).tagName.toLowerCase(),
+                role: (el as HTMLElement).getAttribute('role') || ''
+            }
+        })
+        const candidate = {
+            tag: live.tag,
+            role: live.role,
+            text: live.text,
+            href: live.href,
+            inForm: live.inForm,
+            formAction: live.formAction,
+            inputType: live.inputType
+        }
+        if (!isSafeOfficialDailyClaimCta(candidate)) {
             this.bot.logger.warn(
                 this.bot.isMobile,
                 'DAILY-INSTANT-WIN',
-                `拒绝点击：可见文本已不再匹配官方每日控件 | text=${redactDiagnostics(text, 80)}`
+                `拒绝点击：控件未通过官方文本或 href/form/条款安全检查 | text=${redactDiagnostics(live.text, 80)}`
             )
             return false
         }
-        await locator.first().click({ timeout: 8000 })
+        await handle.click({ timeout: 8000 })
         this.bot.logger.info(
             this.bot.isMobile,
             'DAILY-INSTANT-WIN',
@@ -257,11 +302,104 @@ export class DailyInstantWin extends BaseActivity {
         return result
     }
 
+
+    private async captureFormInventory(page: Page): Promise<{ url: string; fields: Record<string, unknown>[] }> {
+        const inventory = await page.evaluate(() => {
+            const labelFor = (el: Element): string => {
+                const labelled = el.getAttribute('aria-labelledby')
+                if (labelled) {
+                    return labelled
+                        .split(/\s+/)
+                        .map(id => document.getElementById(id)?.innerText || '')
+                        .join(' ')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                }
+                const aria = el.getAttribute('aria-label') || ''
+                if (aria) return aria.trim()
+                const id = el.getAttribute('id')
+                if (id) {
+                    const lab = document.querySelector(`label[for="${CSS.escape(id)}"]`)
+                    if (lab) return (lab as HTMLElement).innerText.replace(/\s+/g, ' ').trim()
+                }
+                const parent = el.closest('label')
+                return parent ? (parent as HTMLElement).innerText.replace(/\s+/g, ' ').trim() : ''
+            }
+            const nodes = Array.from(
+                document.querySelectorAll('form input, form select, form textarea, form button[type="submit"], input, select, textarea, button[type="submit"]')
+            )
+            return {
+                url: location.href,
+                fields: nodes.map(el => {
+                    const input = el as HTMLInputElement
+                    const type = (input.type || el.tagName.toLowerCase()).toLowerCase()
+                    const value = input.value || ''
+                    const tag = el.tagName.toLowerCase()
+                    let selectedText = ''
+                    if (tag === 'select') {
+                        const sel = el as HTMLSelectElement
+                        selectedText = sel.selectedOptions?.[0]?.text?.trim() || ''
+                    }
+                    const text = tag === 'button' ? (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim() : ''
+                    return {
+                        tag,
+                        type,
+                        name: input.name || '',
+                        id: input.id || '',
+                        label: labelFor(el),
+                        text,
+                        required: Boolean(input.required),
+                        disabled: Boolean(input.disabled),
+                        readOnly: Boolean(input.readOnly),
+                        hasValue: Boolean(value),
+                        valueLength: value ? String(value).length : 0,
+                        checked: type === 'checkbox' || type === 'radio' ? Boolean(input.checked) : undefined,
+                        selectedText,
+                        autoComplete: input.autocomplete || '',
+                        href: el.getAttribute('href') || ''
+                    }
+                })
+            }
+        })
+        inventory.url = redactDiagnostics(inventory.url, 300)
+        inventory.fields = inventory.fields.map(field => ({
+            ...field,
+            label: redactDiagnostics(String(field.label || ''), 180),
+            text: redactDiagnostics(String(field.text || ''), 180),
+            selectedText: redactDiagnostics(String(field.selectedText || ''), 80)
+        }))
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'DAILY-INSTANT-WIN',
+            `表单盘点 | fields=${inventory.fields
+                .map(field => {
+                    const bits = [
+                        field.label || field.name || field.type,
+                        field.type,
+                        field.required ? 'required' : '',
+                        field.hasValue ? `prefilled:${field.valueLength}` : 'empty',
+                        field.checked === undefined ? '' : `checked=${field.checked}`,
+                        field.selectedText ? `selected=${field.selectedText}` : ''
+                    ].filter(Boolean)
+                    return bits.join('/')
+                })
+                .join(' ; ')}`
+        )
+        return inventory
+    }
+
     private async saveDiagnoseArtifacts(page: Page, snapshot: PrizeDropSnapshot, stage: string): Promise<void> {
         const root = process.env.DAILY_INSTANT_WIN_DIAGNOSE_DIR || '/tmp/rewards-instant-win-diagnose'
-        const alias = this.bot.userData.userName || 'account'
+        const alias = accountEvidenceAlias(this.bot.userData.userName)
         const dir = join(root, alias, stage)
+        mkdirSync(root, { recursive: true, mode: 0o700 })
         mkdirSync(dir, { recursive: true, mode: 0o700 })
+        try {
+            chmodSync(root, 0o700)
+            chmodSync(dir, 0o700)
+        } catch {
+            // best-effort on platforms that cannot chmod
+        }
         const dialogs = await page.evaluate(() => {
             const nodes = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'))
             return nodes.map(node => (node as HTMLElement).innerText || '').map(text => text.replace(/\s+/g, ' ').trim()).filter(Boolean)
@@ -278,18 +416,36 @@ export class DailyInstantWin extends BaseActivity {
             dialogs: dialogs.map(text => redactDiagnostics(text, 2000)),
             visibleText: redactDiagnostics(snapshot.visibleText, 20000)
         }
-        writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(payload, null, 2))
-        writeFileSync(join(dir, 'visible.txt'), payload.visibleText)
-        await page.screenshot({ path: join(dir, 'page.png'), fullPage: true })
+        const formInventory = await this.captureFormInventory(page)
+        const snapshotPath = join(dir, 'snapshot.json')
+        const visiblePath = join(dir, 'visible.txt')
+        const inventoryPath = join(dir, 'form-inventory.json')
+        const screenshotPath = join(dir, 'page.png')
+        writeFileSync(snapshotPath, JSON.stringify(payload, null, 2))
+        writeFileSync(visiblePath, payload.visibleText)
+        writeFileSync(inventoryPath, JSON.stringify(formInventory, null, 2))
+        const mask = page.locator(
+            'input, textarea, select, [type="email"], [type="tel"], [type="password"], [name="firstName"], [name="lastName"], [name="nationalPhoneNumber"], [name="phoneCountryCode"], [autocomplete="tel-national"], [autocomplete="tel-country-code"], img, [aria-label*="个人资料"], [aria-label*="profile" i], [aria-label*="查看个人资料"]'
+        )
+        await page.screenshot({
+            path: screenshotPath,
+            fullPage: true,
+            mask: [mask],
+            maskColor: '#5a5a5a'
+        })
+        for (const filePath of [snapshotPath, visiblePath, inventoryPath, screenshotPath]) {
+            try {
+                chmodSync(filePath, 0o600)
+            } catch {
+                // best-effort
+            }
+        }
         this.bot.logger.info(
             this.bot.isMobile,
             'DAILY-INSTANT-WIN',
-            `已保存只读取证 | dir=${dir} | ctas=${payload.ctaTexts.length} | dialogs=${payload.dialogs.length}`
+            `已保存只读取证 | alias=${alias} | stage=${stage} | ctas=${payload.ctaTexts.length} | dialogs=${payload.dialogs.length} | fields=${formInventory.fields.length}`
         )
     }
 }
 
-function normalizeForCompare(text: string): string {
-    return text.replace(/\u00a0/g, ' ').replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim()
-}
 
