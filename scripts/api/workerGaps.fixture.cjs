@@ -86,7 +86,8 @@ function createActivityBot(t) {
             },
             react: {
                 getStreakProtection: () => ({ isProtectionOn: true, remainingDays: 3 }),
-                routerStateTree: () => 'offline-router-state'
+                routerStateTree: () => 'offline-router-state',
+                pageRouterStateTree: () => 'offline-page-router-state'
             }
         }
     }
