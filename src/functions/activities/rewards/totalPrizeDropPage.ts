@@ -212,6 +212,22 @@ function looksLikeLoginUrl(url: string): boolean {
     return /\/auth\/login|login\.live\.com|login\.microsoftonline\.com/i.test(url)
 }
 
+
+/** CTAs observed after the CN daily card was opened, without a Check-winner control. */
+export const EXPANDED_DETAILS_CTA_TEXTS = ['填写报名表', '权益说明', '查看条款'] as const
+
+export function detectExpandedDetailsPanel(before: PrizeDropSnapshot, after: PrizeDropSnapshot): boolean {
+    const beforeTexts = new Set(before.ctas.map(cta => normalizeVisibleText(cta.text)))
+    const added = after.ctas
+        .map(cta => normalizeVisibleText(cta.text))
+        .filter(text => text && !beforeTexts.has(text))
+    const addedDetails = added.filter(text =>
+        EXPANDED_DETAILS_CTA_TEXTS.some(label => text === label || text.includes(label))
+    )
+    const afterDecision = classifyPrizeDropSnapshot(after)
+    return addedDetails.length > 0 && afterDecision.outcome === 'claimable'
+}
+
 export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantWinDecision {
     const visible = normalizeVisibleText(snapshot.visibleText)
     const url = snapshot.url || ''

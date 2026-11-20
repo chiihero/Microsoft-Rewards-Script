@@ -1,7 +1,10 @@
 import type { Page } from 'patchright'
 import { BaseActivity } from '../BaseActivity'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
     classifyPrizeDropSnapshot,
+    detectExpandedDetailsPanel,
     isDailyInstantWinCtaText,
     redactDiagnostics,
     TOTAL_PRIZE_DROP_URL,
@@ -64,6 +67,16 @@ export class DailyInstantWin extends BaseActivity {
             const decision = classifyPrizeDropSnapshot(before)
             this.logDecision('page', decision)
 
+            if (process.env.DAILY_INSTANT_WIN_DIAGNOSE === '1') {
+                await this.saveDiagnoseArtifacts(page, before, 'landing')
+                return this.finish({
+                    outcome: 'unverified',
+                    reason: 'diagnose-only capture, no click',
+                    clicked: false,
+                    diagnostics: decision.diagnostics
+                })
+            }
+
             if (decision.outcome !== 'claimable' || !decision.dailyCta) {
                 return this.finish({
                     outcome: decision.outcome,
@@ -87,6 +100,15 @@ export class DailyInstantWin extends BaseActivity {
             const after = await this.captureSnapshot(page)
             const receipt = classifyPrizeDropSnapshot(after)
             this.logDecision('receipt', receipt)
+
+            if (detectExpandedDetailsPanel(before, after)) {
+                return this.finish({
+                    outcome: 'unverified',
+                    reason: 'click opened a details panel (填写报名表/权益说明/查看条款) while the daily card stayed in progress; no distinct Check-winner control or receipt was visible',
+                    clicked: true,
+                    diagnostics: receipt.diagnostics
+                })
+            }
 
             if (receipt.outcome === 'claimable') {
                 return this.finish({
@@ -233,6 +255,37 @@ export class DailyInstantWin extends BaseActivity {
             `完成 | status=${result.outcome} | clicked=${result.clicked} | reason=${result.reason}`
         )
         return result
+    }
+
+    private async saveDiagnoseArtifacts(page: Page, snapshot: PrizeDropSnapshot, stage: string): Promise<void> {
+        const root = process.env.DAILY_INSTANT_WIN_DIAGNOSE_DIR || '/tmp/rewards-instant-win-diagnose'
+        const alias = this.bot.userData.userName || 'account'
+        const dir = join(root, alias, stage)
+        mkdirSync(dir, { recursive: true, mode: 0o700 })
+        const dialogs = await page.evaluate(() => {
+            const nodes = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'))
+            return nodes.map(node => (node as HTMLElement).innerText || '').map(text => text.replace(/\s+/g, ' ').trim()).filter(Boolean)
+        })
+        const payload = {
+            url: redactDiagnostics(snapshot.url, 300),
+            title: snapshot.title ? redactDiagnostics(snapshot.title, 200) : undefined,
+            ctaTexts: snapshot.ctas.map(cta => ({
+                tag: cta.tag,
+                role: cta.role,
+                text: redactDiagnostics(cta.text, 180),
+                href: redactDiagnostics(cta.href, 200)
+            })),
+            dialogs: dialogs.map(text => redactDiagnostics(text, 2000)),
+            visibleText: redactDiagnostics(snapshot.visibleText, 20000)
+        }
+        writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(payload, null, 2))
+        writeFileSync(join(dir, 'visible.txt'), payload.visibleText)
+        await page.screenshot({ path: join(dir, 'page.png'), fullPage: true })
+        this.bot.logger.info(
+            this.bot.isMobile,
+            'DAILY-INSTANT-WIN',
+            `已保存只读取证 | dir=${dir} | ctas=${payload.ctaTexts.length} | dialogs=${payload.dialogs.length}`
+        )
     }
 }
 

@@ -11,6 +11,7 @@ const {
     isForbiddenCtaText,
     selectDailyInstantWinCta,
     snapshotFromHtml,
+    detectExpandedDetailsPanel,
     TOTAL_PRIZE_DROP_URL
 } = require('../../src/functions/activities/rewards/totalPrizeDropPage.ts')
 
@@ -207,4 +208,62 @@ test('logged-in CN daily card marked completed is already_claimed and is not cli
     )
     assert.equal(decision.outcome, 'already_claimed')
     assert.equal(decision.dailyCta, null)
+})
+
+const landingCtas = [
+    { tag: 'a', role: 'link', text: '填写参与表单', href: '' },
+    { tag: 'a', role: 'link', text: '可用积分7,686兑换', href: '' },
+    { tag: 'button', role: 'button', text: '每天在 Bing 上搜索，看看您是否中奖正在进行', href: '' },
+    { tag: 'a', role: 'link', text: '获得100积分：安装Rewards扩展程序', href: '' },
+    { tag: 'a', role: 'link', text: '完成参赛表格', href: '' },
+    { tag: 'a', role: 'link', text: '获取您的免费中奖机会填写参与表单', href: '' }
+]
+
+const afterPanelCtas = [
+    ...landingCtas,
+    { tag: 'button', role: 'button', text: '填写报名表', href: '' },
+    { tag: 'a', role: 'link', text: '权益说明', href: '' },
+    { tag: 'a', role: 'link', text: '查看条款', href: '' }
+]
+
+test('real CN landing page stays claimable and is not treated as already claimed', () => {
+    const decision = classifyPrizeDropSnapshot(
+        snapshot({
+            visibleText: '奖品赠送 每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。完成参赛表格 获取您的免费中奖机会 填写参与表单',
+            ctas: landingCtas
+        })
+    )
+    assert.equal(decision.outcome, 'claimable')
+    assert.notEqual(decision.outcome, 'already_claimed')
+    assert.notEqual(decision.outcome, 'claimed')
+})
+
+test('opening the CN details panel is unverified, not a win or already-claimed receipt', () => {
+    const before = snapshot({
+        visibleText: '每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。',
+        ctas: landingCtas
+    })
+    const after = snapshot({
+        visibleText: '每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。填写报名表 权益说明 查看条款',
+        ctas: afterPanelCtas
+    })
+    assert.equal(classifyPrizeDropSnapshot(after).outcome, 'claimable')
+    assert.equal(detectExpandedDetailsPanel(before, after), true)
+    assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'claimed')
+    assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'already_claimed')
+})
+
+test('unverified outcomes stay retryable and do not become already_claimed', () => {
+    const DailyInstantWin = require('../../src/functions/activities/rewards/DailyInstantWin.ts').DailyInstantWin
+    const activity = Object.create(DailyInstantWin.prototype)
+    activity.lastResult = {
+        outcome: 'unverified',
+        reason: 'click opened a details panel',
+        clicked: true,
+        diagnostics: { url: TOTAL_PRIZE_DROP_URL, ctaTexts: [], visibleExcerpt: '' }
+    }
+    assert.equal(activity.isTerminal('unverified'), false)
+    assert.equal(activity.isTerminal('error'), false)
+    assert.equal(activity.isTerminal('claimed'), true)
+    assert.equal(activity.isTerminal('already_claimed'), true)
 })
