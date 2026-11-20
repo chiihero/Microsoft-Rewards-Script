@@ -97,7 +97,8 @@ export default class BrowserFunc {
                     Referer: `${URLs.bing.origin}/`,
                     Origin: URLs.bing.origin
                 },
-                retries: 0
+                // flyout 是最后的兜底：网络抖动（如 TLS 握手 EOF）要重试，否则会直接中断整个搜索会话
+                retries: 2
             })
 
             await this.applyResponseCookies(URLs.bing.rewardsFlyoutUserInfo, response.headers['set-cookie'])
