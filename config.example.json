@@ -25,7 +25,8 @@
         "doDailyCheckIn": true,
         "doReadToEarn": true,
         "doActivateSearchPerk": true,
-        "doVisualSearch": false
+        "doVisualSearch": false,
+        "doDailyInstantWin": true
     },
     "activities": {
         "urlReward": true,
