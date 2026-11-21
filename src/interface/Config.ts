@@ -99,6 +99,7 @@ export interface ConfigWorkers {
     doReadToEarn: boolean
     doActivateSearchPerk: boolean
     doVisualSearch: boolean
+    doDailyInstantWin?: boolean
 }
 
 export interface ConfigActivities {

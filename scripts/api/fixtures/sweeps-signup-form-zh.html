@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><title>Microsoft Rewards 报名</title></head>
+<body>
+  <nav>
+    <a href="/sweeps/promotion">奖品赠送</a>
+    <a href="/sweeps/bonus">额外参赛机会</a>
+    <a href="/auth/login">使用其他帐户登录</a>
+  </nav>
+  <h1>要参与，请填写报名表</h1>
+  <p>首先，完成您的参赛表格。</p>
+  <form action="/sweeps/signup" method="post">
+    <label>法定名字 * <input name="firstName" required value=""></label>
+    <label>法定姓氏 * <input name="lastName" required value=""></label>
+    <label>电子邮件 * <input type="email" required value="" readonly></label>
+    <label>电话号码 * <input name="nationalPhoneNumber" type="tel" required value=""></label>
+    <label>国家/地区 *
+      <select name="country" required>
+        <option value="US">美国</option>
+        <option value="CN">中国</option>
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" name="officialRulesAccepted">
+      我确认，我已达到居住司法管辖区规定的成年年龄，并已阅读并接受 即时获奖活动官方规则 和 抽奖活动官方规则。
+    </label>
+    <button type="submit">立即参与</button>
+  </form>
+  <a href="https://aka.ms/win-IW-Rules">即时获奖活动官方规则</a>
+</body>
+</html>
