@@ -17,6 +17,7 @@ import {
 } from './totalPrizeDropPage'
 import {
     buildStatusRecord,
+    clickedAfterExecutionError,
     defaultStatusDir,
     isConfirmedOutcome,
     loadStatusRecord,
@@ -72,6 +73,7 @@ export class DailyInstantWin extends BaseActivity {
             }, persisted)
         }
 
+        let clickAttemptCommitted = false
         try {
             const diagnose = process.env.DAILY_INSTANT_WIN_DIAGNOSE === '1'
             const targetUrl = diagnose
@@ -84,10 +86,9 @@ export class DailyInstantWin extends BaseActivity {
                 `打开每日 Instant Win 页面 | url=${targetUrl} | geo=${this.bot.userData.geoLocale} | diagnose=${diagnose}`
             )
             await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-            // Strict diagnose is capture-only: never dismiss popups, never click, never submit.
-            if (!diagnose) {
-                await this.bot.browser.utils.tryDismissAllMessages(page)
-            }
+            // Never call the generic popup/consent handler here. It can click
+            // #acceptButton / #idSIButton9 / .ms-Button--primary before signup
+            // or eligibility is inspected. Diagnose and normal mode both skip it.
             await this.bot.utils.wait(this.bot.utils.randomDelay(1500, 3000))
 
             const before = await this.captureSnapshot(page)
@@ -147,15 +148,26 @@ export class DailyInstantWin extends BaseActivity {
                 }, persisted)
             }
 
+            // Persist the attempt BEFORE the click so a later receipt-read
+            // exception cannot leave clicked=false and allow a second click.
+            const pending = buildStatusRecord({
+                outcome: 'unverified',
+                reason: 'official daily click attempted; receipt pending',
+                clicked: true,
+                previous: persisted
+            })
+            saveStatusRecord(defaultStatusDir(), alias, pending)
+            clickAttemptCommitted = true
+
             const clicked = await this.clickOfficialDailyCta(page, decision.dailyCta)
             if (!clicked) {
                 return this.finish({
-                    // unique official control could not be clicked; do not invent a receipt
+                    // Attempt already recorded; unknown result must not be retried today.
                     outcome: 'unverified',
                     reason: 'official daily Instant Win control was found in the snapshot but could not be clicked uniquely',
-                    clicked: false,
+                    clicked: true,
                     diagnostics: decision.diagnostics
-                }, persisted)
+                }, pending)
             }
 
             await this.bot.utils.wait(this.bot.utils.randomDelay(2000, 4000))
@@ -203,10 +215,11 @@ export class DailyInstantWin extends BaseActivity {
                 'DAILY-INSTANT-WIN',
                 `执行出错，已失败关闭且不阻断后续任务 | ${redactDiagnostics(message, 200)}`
             )
+            const attempted = clickedAfterExecutionError(clickAttemptCommitted, Boolean(persisted?.clicked))
             return this.finish({
                 outcome: 'retryable_error',
                 reason: redactDiagnostics(message, 200),
-                clicked: false,
+                clicked: attempted,
                 diagnostics: {
                     url: redactDiagnostics(page.url(), 200),
                     ctaTexts: [],

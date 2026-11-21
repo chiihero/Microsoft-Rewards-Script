@@ -278,7 +278,7 @@ export class MicrosoftRewardsBot {
             `启动微软奖励脚本 | v${pkg.version} | 账户数: ${totalAccounts} | 集群数: ${this.config.clusters}`
         )
 
-        const dailyInstantWinOnly = process.env.DAILY_INSTANT_WIN_ONLY === '1'
+        const dailyInstantWinOnly = process.env.DAILY_INSTANT_WIN_ONLY === '1' || process.env.DAILY_INSTANT_WIN_SIGNUP === '1'
 
         if (this.config.clusters <= 1 || cluster.isPrimary) {
             if (!dailyInstantWinOnly && shouldSkipRunToday()) {
@@ -734,7 +734,12 @@ export class MicrosoftRewardsBot {
         try {
             return await executionContext.run({ isMobile: false, account }, async () => {
                 opened.session = await this.createDesktopSession(account)
-                await this.activities.doDailyInstantWin()
+                if (process.env.DAILY_INSTANT_WIN_SIGNUP === '1') {
+                    await this.activities.doInstantWinSignup()
+                }
+                if (process.env.DAILY_INSTANT_WIN_ONLY === '1') {
+                    await this.activities.doDailyInstantWin()
+                }
                 return { initialPoints: this.userData.currentPoints ?? 0, collectedPoints: 0 }
             })
         } finally {
@@ -766,7 +771,7 @@ export class MicrosoftRewardsBot {
         const accountEmail = account.email
         this.logger.info('main', 'FLOW', `开始为 ${accountEmail} 创建会话`)
 
-        if (process.env.DAILY_INSTANT_WIN_ONLY === '1') {
+        if (process.env.DAILY_INSTANT_WIN_ONLY === '1' || process.env.DAILY_INSTANT_WIN_SIGNUP === '1') {
             return await this.mainDailyInstantWinOnly(account)
         }
 

@@ -151,7 +151,7 @@ const INELIGIBLE_PATTERNS: RegExp[] = [
 
 /** Confirmed already-used-today receipts only. Unknown “maybe done” text stays unverified. */
 const ALREADY_CLAIMED_PATTERNS: RegExp[] = [
-    /already (used|played|claimed|checked) (today'?s |today )?((instant )?win(ner)? )?chance/i,
+    /already (used|played|claimed|checked) (today'?s |today )((instant )?win(ner)? )?chance/i,
     /you('ve| have) already (played|tried|checked) today/i,
     /come back tomorrow to (play|try|check)/i,
     /today'?s (instant win )?chance (has )?already (been )?(used|played|claimed)/i,
@@ -330,6 +330,35 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
+    // Signup, OTP, and missing required fields must be classified before any
+    // daily CTA or prize-receipt wording. Example "you won" copy on a form
+    // and a Check-winner label outside the form must not bypass the barrier.
+    const signup = inspectSignupState({
+        url,
+        visibleText: visible,
+        fields: snapshot.formFields,
+        hasOfficialDailyCta: Boolean(selected.cta)
+    })
+    if (signup.challenge) {
+        return {
+            outcome: 'unverified',
+            reason: signup.reason,
+            dailyCta: null,
+            blockedFields: signup.blockedFields,
+            challenge: true,
+            diagnostics
+        }
+    }
+    if (signup.outcome === 'missing_profile_fields' || signup.outcome === 'needs_registration') {
+        return {
+            outcome: signup.outcome,
+            reason: signup.reason,
+            dailyCta: null,
+            blockedFields: signup.blockedFields,
+            diagnostics
+        }
+    }
+
     if (hasPattern(visible, ALREADY_CLAIMED_PATTERNS) && !selected.cta) {
         return {
             outcome: 'already_claimed',
@@ -353,6 +382,7 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
             outcome: 'claimable',
             reason: 'unique official daily Instant Win control is visible',
             dailyCta: selected.cta,
+            signupComplete: signup.signupComplete || undefined,
             diagnostics
         }
     }
@@ -376,37 +406,12 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
-    const signup = inspectSignupState({
-        url,
-        visibleText: visible,
-        fields: snapshot.formFields,
-        hasOfficialDailyCta: false
-    })
-    if (signup.challenge) {
-        return {
-            outcome: 'unverified',
-            reason: signup.reason,
-            dailyCta: null,
-            blockedFields: signup.blockedFields,
-            challenge: true,
-            diagnostics
-        }
-    }
     if (signup.signupComplete) {
         return {
             outcome: 'unverified',
             reason: signup.reason,
             dailyCta: null,
             signupComplete: true,
-            diagnostics
-        }
-    }
-    if (signup.outcome === 'missing_profile_fields' || signup.outcome === 'needs_registration') {
-        return {
-            outcome: signup.outcome,
-            reason: signup.reason,
-            dailyCta: null,
-            blockedFields: signup.blockedFields,
             diagnostics
         }
     }

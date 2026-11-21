@@ -2,7 +2,7 @@
  * Public Instant Win status, same-day persistence, and receipt kind.
  * Records are redacted: no names, emails, phones, or usernames.
  */
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { InstantWinOutcome } from './totalPrizeDropPage'
 
@@ -160,13 +160,25 @@ export function loadStatusRecord(dir: string, alias: string): InstantWinStatusRe
 export function saveStatusRecord(dir: string, alias: string, record: InstantWinStatusRecord): void {
     mkdirSync(dir, { recursive: true, mode: 0o700 })
     const path = stateFilePath(dir, alias)
-    writeFileSync(path, JSON.stringify(record, null, 2))
+    const tmp = `${path}.tmp`
+    writeFileSync(tmp, JSON.stringify(record, null, 2))
     try {
         chmodSync(dir, 0o700)
+        chmodSync(tmp, 0o600)
+    } catch {
+        // best-effort
+    }
+    renameSync(tmp, path)
+    try {
         chmodSync(path, 0o600)
     } catch {
         // best-effort
     }
+}
+
+/** A same-day official click or submit attempt must not be retried even if the later receipt read fails. */
+export function clickedAfterExecutionError(clickAttemptCommitted: boolean, previousClicked = false): boolean {
+    return Boolean(clickAttemptCommitted || previousClicked)
 }
 
 export function defaultStatusDir(): string {

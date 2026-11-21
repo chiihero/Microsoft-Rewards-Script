@@ -32,6 +32,7 @@ export const URLs = {
         earnStreaks: `${REWARDS}/earn?section=streaks`,
         dashboard: `${REWARDS}/dashboard`,
         sweepsBonus: `${REWARDS}/sweeps/bonus`,
+        sweepsSignup: `${REWARDS}/sweeps/signup`,
         userLogin: `${REWARDS}/auth/login`,
         quest: (parentOfferId: string) => `${REWARDS}/earn/quest/${parentOfferId}`,
         path: (path: string) => `${REWARDS}${path}`

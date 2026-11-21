@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><title>Microsoft Rewards 报名</title></head>
+<body>
+  <h1>要参与，请填写报名表</h1>
+  <p>请输入短信验证码</p>
+  <form action="/sweeps/signup" method="post">
+    <label>法定名字 * <input name="firstName" required value="Official"></label>
+    <label>电子邮件 * <input name="email" type="email" required value="person@example.com"></label>
+    <label>验证码 * <input name="otp" type="one-time-code" required value=""></label>
+    <button type="submit">立即参与</button>
+  </form>
+  <button type="button">Check if you're a winner</button>
+</body>
+</html>

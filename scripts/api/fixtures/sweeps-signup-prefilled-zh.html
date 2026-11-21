@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><title>Microsoft Rewards 报名</title></head>
+<body>
+  <h1>要参与，请填写报名表</h1>
+  <form action="/sweeps/signup" method="post">
+    <label>法定名字 * <input name="firstName" required value="Official"></label>
+    <label>法定姓氏 * <input name="lastName" required value="Prefill"></label>
+    <label>电子邮件 * <input name="email" type="email" required value="person@example.com" readonly></label>
+    <label>国家代码 * <select name="phoneCountryCode" required><option value="+1">+1</option><option value="+86">+86</option></select></label>
+    <label>电话号码 * <input name="nationalPhoneNumber" type="tel" required value=""></label>
+    <label>国家/地区 *
+      <select name="country" required>
+        <option value="US" selected>美国</option>
+        <option value="CN">中国</option>
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" name="officialRulesAccepted">
+      我确认，我已达到居住司法管辖区规定的成年年龄，并已阅读并接受 即时获奖活动官方规则。
+    </label>
+    <button type="submit">立即参与</button>
+  </form>
+</body>
+</html>
