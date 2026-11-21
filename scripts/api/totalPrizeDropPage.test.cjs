@@ -19,6 +19,26 @@ const {
     TOTAL_PRIZE_DROP_URL
 } = require('../../src/functions/activities/rewards/totalPrizeDropPage.ts')
 
+const {
+    buildStatusRecord,
+    instantWinTodayKey,
+    isBlockedPendingInput,
+    isConfirmedOutcome,
+    loadStatusRecord,
+    saveStatusRecord,
+    shouldSkipSameDayAction,
+    toPublicStatus
+} = require('../../src/functions/activities/rewards/instantWinStatus.ts')
+
+const {
+    countryOptionsIncludeChina,
+    detectAuthChallenge,
+    inspectSignupState,
+    isAllowedAuthorizedResidence,
+    isSignupSuccessReceipt,
+    missingRequiredFieldNames
+} = require('../../src/functions/activities/rewards/instantWinSignup.ts')
+
 const fixtures = path.join(__dirname, 'fixtures')
 
 function decisionFromHtml(file, url = TOTAL_PRIZE_DROP_URL) {
@@ -200,11 +220,12 @@ test('logged-in CN outer daily card in progress is never claimable', () => {
         })
     )
     assert.equal(isOuterDailyMarketingCardText('每天在 Bing 上搜索，看看您是否中奖正在进行'), true)
-    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.outcome, 'needs_registration')
     assert.equal(decision.dailyCta, null)
     assert.notEqual(decision.outcome, 'claimable')
     assert.notEqual(decision.outcome, 'already_claimed')
     assert.notEqual(decision.outcome, 'claimed')
+    assert.equal(toPublicStatus(decision.outcome), 'needs_registration')
 })
 
 test('undated CN outer card marked completed is not already_claimed', () => {
@@ -237,14 +258,14 @@ const afterPanelCtas = [
     { tag: 'a', role: 'link', text: '查看条款', href: '' }
 ]
 
-test('real CN landing page with only the outer card is unverified, not claimed', () => {
+test('real CN landing page with only the outer card is needs_registration, not claimed', () => {
     const decision = classifyPrizeDropSnapshot(
         snapshot({
             visibleText: '奖品赠送 每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。完成参赛表格 获取您的免费中奖机会 填写参与表单',
             ctas: landingCtas
         })
     )
-    assert.equal(decision.outcome, 'unverified')
+    assert.equal(decision.outcome, 'needs_registration')
     assert.equal(decision.dailyCta, null)
     assert.notEqual(decision.outcome, 'claimable')
     assert.notEqual(decision.outcome, 'already_claimed')
@@ -260,7 +281,7 @@ test('opening the CN details panel is unverified, not a win or already-claimed r
         visibleText: '每天在 Bing 上搜索，看看您是否中奖 正在进行 首先，完成您的参赛表格。填写报名表 权益说明 查看条款',
         ctas: afterPanelCtas
     })
-    assert.equal(classifyPrizeDropSnapshot(after).outcome, 'unverified')
+    assert.equal(classifyPrizeDropSnapshot(after).outcome, 'needs_registration')
     assert.equal(classifyPrizeDropSnapshot(after).dailyCta, null)
     assert.equal(detectExpandedDetailsPanel(before, after), true)
     assert.notEqual(classifyPrizeDropSnapshot(after).outcome, 'claimed')
@@ -279,18 +300,24 @@ test('unverified outcomes stay retryable and do not become already_claimed', () 
     }
     assert.equal(activity.isTerminal('unverified'), false)
     assert.equal(activity.isTerminal('error'), false)
+    assert.equal(activity.isTerminal('retryable_error'), false)
     assert.equal(activity.isTerminal('ineligible'), false)
     assert.equal(activity.isTerminal('login_required'), false)
     assert.equal(activity.isTerminal('unavailable'), false)
     assert.equal(activity.isTerminal('claimable'), false)
     assert.equal(activity.isTerminal('claimed'), true)
     assert.equal(activity.isTerminal('already_claimed'), true)
+    assert.equal(activity.isTerminal('needs_registration'), true)
+    assert.equal(activity.isTerminal('missing_profile_fields'), true)
 })
 
 test('authorization: official Check-winner linked to signup is not claimable', () => {
     const decision = decisionFromHtml('sweeps-check-winner-signup-href.html')
-    assert.equal(decision.outcome, 'unverified')
+    assert.notEqual(decision.outcome, 'claimable')
+    assert.notEqual(decision.outcome, 'claimed')
+    assert.notEqual(decision.outcome, 'already_claimed')
     assert.equal(decision.dailyCta, null)
+    assert.ok(['needs_registration', 'unverified'].includes(decision.outcome))
     const cta = { tag: 'a', role: 'link', text: "Check if you're a winner", href: 'https://rewards.bing.com/sweeps/signup' }
     assert.equal(isUnsafeDailyClaimCta(cta), true)
     assert.equal(isSafeOfficialDailyClaimCta(cta), false)
@@ -324,13 +351,14 @@ test('authorization: Check-winner in an entry-form or additional-terms context i
     assert.equal(isSafeOfficialDailyClaimCta(termsContext), false)
 })
 
-test('authorization: signup / 报名条款 page is never a daily claim target', () => {
+test('authorization: signup / 报名条款 page is missing_profile_fields, never a daily claim', () => {
     const decision = decisionFromHtml('sweeps-signup-form-zh.html', 'https://rewards.bing.com/sweeps/signup')
+    assert.equal(decision.outcome, 'missing_profile_fields')
+    assert.ok(decision.blockedFields.includes('nationalPhoneNumber') || decision.blockedFields.includes('phoneCountryCode') || decision.blockedFields.length > 0)
     assert.notEqual(decision.outcome, 'claimable')
     assert.notEqual(decision.outcome, 'claimed')
     assert.notEqual(decision.outcome, 'already_claimed')
     assert.equal(decision.dailyCta, null)
-    assert.ok(['unverified', 'login_required'].includes(decision.outcome))
 })
 
 test('explicit already-used-today receipt is still already_claimed; undated 已完成 is not', () => {
@@ -379,9 +407,10 @@ test('error and unverified results are not cached as today-complete on retry', a
     activity.bot = { isMobile: false, logger: { info() {}, warn() {} }, userData: { geoLocale: 'CN' } }
     const result = await DailyInstantWin.prototype.run.call(activity)
     assert.equal(ran, true)
-    assert.equal(result.outcome, 'error')
+    assert.equal(result.outcome, 'retryable_error')
     assert.equal(result.clicked, false)
     assert.equal(activity.isTerminal(result.outcome), false)
+    assert.equal(toPublicStatus(result.outcome), 'retryable_error')
 })
 
 test('DIAGNOSE never dismisses popups, never clicks, and never submits', async () => {
@@ -440,16 +469,176 @@ test('DIAGNOSE never dismisses popups, never clicks, and never submits', async (
     process.env.DAILY_INSTANT_WIN_DIAGNOSE = '1'
     try {
         const result = await DailyInstantWin.prototype.run.call(activity)
-        assert.equal(result.outcome, 'unverified')
+        assert.equal(result.outcome, 'claimable')
         assert.equal(result.clicked, false)
         assert.match(result.reason, /diagnose-only/)
         assert.equal(dismissCalls, 0)
         assert.equal(clickCalls, 0)
         assert.equal(submitCalls, 0)
         assert.equal(artifacts, 1)
+        assert.equal(result.diagnose, true)
+        assert.equal(toPublicStatus(result.outcome), 'available')
         assert.equal(activity.isTerminal(result.outcome), false)
     } finally {
         if (previous === undefined) delete process.env.DAILY_INSTANT_WIN_DIAGNOSE
         else process.env.DAILY_INSTANT_WIN_DIAGNOSE = previous
+    }
+})
+
+
+test('search-required copy is search_required, not a claim', () => {
+    const decision = classifyPrizeDropSnapshot(
+        snapshot({
+            visibleText: 'Complete a Bing search first to check if you are a winner today.',
+            ctas: []
+        })
+    )
+    assert.equal(decision.outcome, 'search_required')
+    assert.equal(decision.dailyCta, null)
+    assert.notEqual(decision.outcome, 'claimable')
+})
+
+test('confirmed win and loss receipts map to public confirmed with receiptKind', () => {
+    const won = classifyPrizeDropSnapshot(snapshot({ visibleText: 'Congratulations! You won an instant prize.', ctas: [] }))
+    const lost = classifyPrizeDropSnapshot(snapshot({ visibleText: "Sorry, you didn't win. Better luck tomorrow.", ctas: [] }))
+    const wonRecord = buildStatusRecord({ outcome: won.outcome, reason: won.reason, clicked: true, visibleText: 'Congratulations! You won an instant prize.' })
+    const lostRecord = buildStatusRecord({ outcome: lost.outcome, reason: lost.reason, clicked: true, visibleText: "Sorry, you didn't win. Better luck tomorrow." })
+    assert.equal(wonRecord.publicStatus, 'confirmed')
+    assert.equal(wonRecord.receiptKind, 'won')
+    assert.equal(lostRecord.publicStatus, 'confirmed')
+    assert.equal(lostRecord.receiptKind, 'lost')
+    assert.equal(isConfirmedOutcome(won.outcome), true)
+})
+
+test('same-day clicked unverified does not retry; cross-day state resets', () => {
+    const today = instantWinTodayKey(new Date('2026-11-22T08:00:00+08:00'), 'Asia/Shanghai')
+    const yesterday = instantWinTodayKey(new Date('2026-11-21T08:00:00+08:00'), 'Asia/Shanghai')
+    assert.equal(today, '2026-11-22')
+    assert.equal(yesterday, '2026-11-21')
+    const clicked = buildStatusRecord({
+        outcome: 'unverified',
+        reason: 'clicked but no receipt',
+        clicked: true,
+        now: new Date('2026-11-22T08:00:00+08:00')
+    })
+    assert.equal(shouldSkipSameDayAction(clicked, today), true)
+    assert.equal(shouldSkipSameDayAction(clicked, yesterday), false)
+    const blocked = buildStatusRecord({
+        outcome: 'missing_profile_fields',
+        reason: 'phone empty',
+        clicked: false,
+        blockedFields: ['nationalPhoneNumber'],
+        now: new Date('2026-11-22T08:00:00+08:00')
+    })
+    assert.equal(isBlockedPendingInput(blocked.outcome), true)
+    assert.equal(shouldSkipSameDayAction(blocked, today), false)
+    const confirmed = buildStatusRecord({
+        outcome: 'already_claimed',
+        reason: 'already played today',
+        clicked: false,
+        now: new Date('2026-11-22T08:00:00+08:00')
+    })
+    assert.equal(shouldSkipSameDayAction(confirmed, today), true)
+    assert.equal(shouldSkipSameDayAction(confirmed, '2026-11-23'), false)
+})
+
+test('redacted status JSON has no profile values and can be reloaded', () => {
+    const fs = require('node:fs')
+    const os = require('node:os')
+    const path = require('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'iw-state-'))
+    const record = buildStatusRecord({
+        outcome: 'missing_profile_fields',
+        reason: 'signup form is visible and required profile fields are empty',
+        clicked: false,
+        blockedFields: ['phoneCountryCode', 'nationalPhoneNumber']
+    })
+    saveStatusRecord(dir, 'acct-deadbeef1234', record)
+    const loaded = loadStatusRecord(dir, 'acct-deadbeef1234')
+    const raw = fs.readFileSync(path.join(dir, 'acct-deadbeef1234.json'), 'utf8')
+    assert.equal(loaded.outcome, 'missing_profile_fields')
+    assert.deepEqual(loaded.blockedFields, ['phoneCountryCode', 'nationalPhoneNumber'])
+    assert.doesNotMatch(raw, /@qq\.com|@outlook\.com|1\d{10}|\\+86/i)
+    assert.doesNotMatch(raw, /SecretUser/)
+    fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('signup inspect: empty required phone is missing_profile_fields and China can be selected', () => {
+    const fields = snapshotFromHtml(
+        fs.readFileSync(path.join(fixtures, 'sweeps-signup-form-zh.html'), 'utf8'),
+        'https://rewards.bing.com/sweeps/signup'
+    ).formFields
+    const inspection = inspectSignupState({
+        url: 'https://rewards.bing.com/sweeps/signup',
+        visibleText: '要参与，请填写报名表 电话号码 *',
+        fields
+    })
+    assert.equal(inspection.outcome, 'missing_profile_fields')
+    assert.ok(inspection.blockedFields.includes('nationalPhoneNumber'))
+    assert.equal(isSignupSuccessReceipt('报名成功，您已完成参赛表格'), true)
+    const complete = inspectSignupState({
+        url: 'https://rewards.bing.com/sweeps/signup',
+        visibleText: '报名成功，您已完成参赛表格',
+        fields: []
+    })
+    assert.equal(complete.signupComplete, true)
+    assert.equal(countryOptionsIncludeChina(['美国', '中国', '韩国']), true)
+    assert.equal(countryOptionsIncludeChina(['美国', '加拿大']), false)
+    assert.equal(isAllowedAuthorizedResidence('中国'), true)
+    assert.equal(isAllowedAuthorizedResidence('US'), false)
+    assert.equal(detectAuthChallenge('请输入短信验证码', []), true)
+    assert.equal(detectAuthChallenge('要参与，请填写报名表', fields), false)
+})
+
+test('retry after an unverified click does not click again in the same run', async () => {
+    const DailyInstantWin = require('../../src/functions/activities/rewards/DailyInstantWin.ts').DailyInstantWin
+    const activity = Object.create(DailyInstantWin.prototype)
+    let clickCalls = 0
+    activity.lastResult = {
+        outcome: 'unverified',
+        reason: 'clicked the official daily control but the receipt was not confirmed',
+        clicked: true,
+        diagnostics: { url: TOTAL_PRIZE_DROP_URL, ctaTexts: [], visibleExcerpt: '' }
+    }
+    activity.isTerminal = DailyInstantWin.prototype.isTerminal
+    activity.finish = DailyInstantWin.prototype.finish
+    activity.logDecision = () => {}
+    activity.markExecuted = () => {}
+    activity.todayKey = () => '2026-11-22'
+    activity.saveDiagnoseArtifacts = async () => {}
+    activity.clickOfficialDailyCta = async () => {
+        clickCalls += 1
+        return true
+    }
+    activity.captureSnapshot = async () =>
+        snapshot({
+            visibleText: 'Instant Win',
+            ctas: [{ tag: 'button', role: 'button', text: "Check if you're a winner", href: '' }]
+        })
+    const page = { url: () => TOTAL_PRIZE_DROP_URL, goto: async () => {} }
+    activity.getActivePage = () => page
+    activity.bot = {
+        isMobile: false,
+        userData: { geoLocale: 'CN', userName: 'SecretUser' },
+        logger: { info() {}, warn() {} },
+        browser: { utils: { tryDismissAllMessages: async () => {} } },
+        utils: { wait: async () => {}, randomDelay: () => 1 },
+        mainDesktopPage: page
+    }
+    const previous = process.env.DAILY_INSTANT_WIN_STATE_DIR
+    const fs = require('node:fs')
+    const os = require('node:os')
+    const path = require('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'iw-state-'))
+    process.env.DAILY_INSTANT_WIN_STATE_DIR = dir
+    try {
+        const result = await DailyInstantWin.prototype.run.call(activity)
+        assert.equal(clickCalls, 0)
+        assert.equal(result.clicked, true)
+        assert.match(result.reason, /not retrying blindly|幂等|already recorded/)
+    } finally {
+        if (previous === undefined) delete process.env.DAILY_INSTANT_WIN_STATE_DIR
+        else process.env.DAILY_INSTANT_WIN_STATE_DIR = previous
+        fs.rmSync(dir, { recursive: true, force: true })
     }
 })

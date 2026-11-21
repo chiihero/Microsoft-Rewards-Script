@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { hasSearchRequiredCopy, inspectSignupState } from './instantWinSignup'
 
 /**
  * Visible-state helpers for the Total Prize Drop daily Instant Win page.
@@ -15,8 +16,12 @@ export type InstantWinOutcome =
     | 'login_required'
     | 'unverified'
     | 'error'
+    | 'retryable_error'
     | 'unavailable'
     | 'claimable'
+    | 'needs_registration'
+    | 'missing_profile_fields'
+    | 'search_required'
 
 export interface PageCta {
     tag: string
@@ -29,17 +34,34 @@ export interface PageCta {
     contextText?: string
 }
 
+export interface FormFieldInventory {
+    name: string
+    label: string
+    type: string
+    required: boolean
+    hasValue: boolean
+    valueLength?: number
+    selectedText?: string
+    checked?: boolean
+    disabled?: boolean
+    options?: string[]
+}
+
 export interface PrizeDropSnapshot {
     url: string
     title?: string
     visibleText: string
     ctas: PageCta[]
+    formFields?: FormFieldInventory[]
 }
 
 export interface InstantWinDecision {
     outcome: InstantWinOutcome
     reason: string
     dailyCta: PageCta | null
+    blockedFields?: string[]
+    signupComplete?: boolean
+    challenge?: boolean
     diagnostics: {
         url: string
         title?: string
@@ -167,6 +189,7 @@ export function redactDiagnostics(text: string, max = 400): string {
         .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[alias]')
         .replace(/(authorization|token|cookie|password)=\S+/gi, '$1=[redacted]')
         .replace(/eyJ[\w\-.=]+/g, '[redacted]')
+        .replace(/(?:\+?86[\s-]?)?1[3-9]\d{9}/g, '[phone]')
     return normalizeVisibleText(cleaned).slice(0, max)
 }
 
@@ -344,6 +367,50 @@ export function classifyPrizeDropSnapshot(snapshot: PrizeDropSnapshot): InstantW
         }
     }
 
+    if (hasSearchRequiredCopy(visible)) {
+        return {
+            outcome: 'search_required',
+            reason: 'page asks for a Bing search before the daily Instant Win chance can be used',
+            dailyCta: null,
+            diagnostics
+        }
+    }
+
+    const signup = inspectSignupState({
+        url,
+        visibleText: visible,
+        fields: snapshot.formFields,
+        hasOfficialDailyCta: false
+    })
+    if (signup.challenge) {
+        return {
+            outcome: 'unverified',
+            reason: signup.reason,
+            dailyCta: null,
+            blockedFields: signup.blockedFields,
+            challenge: true,
+            diagnostics
+        }
+    }
+    if (signup.signupComplete) {
+        return {
+            outcome: 'unverified',
+            reason: signup.reason,
+            dailyCta: null,
+            signupComplete: true,
+            diagnostics
+        }
+    }
+    if (signup.outcome === 'missing_profile_fields' || signup.outcome === 'needs_registration') {
+        return {
+            outcome: signup.outcome,
+            reason: signup.reason,
+            dailyCta: null,
+            blockedFields: signup.blockedFields,
+            diagnostics
+        }
+    }
+
     return {
         outcome: 'unverified',
         reason: 'no official daily Instant Win control or confirmed receipt was visible',
@@ -388,6 +455,44 @@ export function extractCtasFromHtml(html: string): PageCta[] {
     return ctas
 }
 
+export function extractFormFieldsFromHtml(html: string): FormFieldInventory[] {
+    const fields: FormFieldInventory[] = []
+    const pattern = /<(input|select|textarea)([^>]*)>/gi
+    for (const match of html.matchAll(pattern)) {
+        const tag = (match[1] || '').toLowerCase()
+        const attrs = match[2] ?? ''
+        const name = /name\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? ''
+        const type = /type\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? tag
+        const required = /\brequired\b/i.test(attrs)
+        const disabled = /\bdisabled\b/i.test(attrs)
+        const rawValue = /value\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? ''
+        let options: string[] = []
+        let selectedText = ''
+        if (tag === 'select') {
+            const start = match.index ?? 0
+            const close = html.toLowerCase().indexOf('</select>', start)
+            const inner = close > start ? html.slice(start, close + 9) : ''
+            options = Array.from(inner.matchAll(/<option[^>]*>([\s\S]*?)<\/option>/gi)).map(item =>
+                normalizeVisibleText(item[1] || '')
+            ).filter(Boolean)
+            const selected = /<option[^>]*selected[^>]*>([\s\S]*?)<\/option>/i.exec(inner) || /<option[^>]*>([\s\S]*?)<\/option>/i.exec(inner)
+            selectedText = selected ? normalizeVisibleText(selected[1] || '') : ''
+        }
+        fields.push({
+            name,
+            label: name,
+            type: type.toLowerCase(),
+            required,
+            hasValue: Boolean(rawValue || (tag === 'select' && selectedText)),
+            valueLength: rawValue ? rawValue.length : selectedText ? selectedText.length : 0,
+            selectedText,
+            disabled,
+            options: options.length ? options : undefined
+        })
+    }
+    return fields
+}
+
 export function snapshotFromHtml(html: string, url = TOTAL_PRIZE_DROP_URL): PrizeDropSnapshot {
     const withoutNoise = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
     const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(withoutNoise)?.[1]
@@ -396,6 +501,7 @@ export function snapshotFromHtml(html: string, url = TOTAL_PRIZE_DROP_URL): Priz
         url,
         title: title ? normalizeVisibleText(title) : undefined,
         visibleText,
-        ctas: extractCtasFromHtml(html)
+        ctas: extractCtasFromHtml(html),
+        formFields: extractFormFieldsFromHtml(withoutNoise)
     }
 }

@@ -9,16 +9,32 @@ import {
     isSafeOfficialDailyClaimCta,
     redactDiagnostics,
     TOTAL_PRIZE_DROP_URL,
+    type FormFieldInventory,
     type InstantWinDecision,
     type InstantWinOutcome,
     type PageCta,
     type PrizeDropSnapshot
 } from './totalPrizeDropPage'
+import {
+    buildStatusRecord,
+    defaultStatusDir,
+    isConfirmedOutcome,
+    loadStatusRecord,
+    saveStatusRecord,
+    shouldSkipSameDayAction,
+    toPublicStatus,
+    type InstantWinStatusRecord
+} from './instantWinStatus'
 
 export interface DailyInstantWinResult {
     outcome: InstantWinOutcome
     reason: string
     clicked: boolean
+    publicStatus?: ReturnType<typeof toPublicStatus>
+    receiptKind?: InstantWinStatusRecord['receiptKind']
+    blockedFields?: string[]
+    signupComplete?: boolean
+    diagnose?: boolean
     diagnostics: InstantWinDecision['diagnostics']
 }
 
@@ -30,11 +46,13 @@ export class DailyInstantWin extends BaseActivity {
     }
 
     public async run(): Promise<DailyInstantWinResult> {
+        const alias = accountEvidenceAlias(this.bot.userData.userName)
+        const persisted = loadStatusRecord(defaultStatusDir(), alias)
         if (this.lastResult && this.isTerminal(this.lastResult.outcome)) {
             this.bot.logger.info(
                 this.bot.isMobile,
                 'DAILY-INSTANT-WIN',
-                `幂等跳过 | status=${this.lastResult.outcome} | reason=${this.lastResult.reason}`
+                `幂等跳过 | status=${this.lastResult.outcome} | public=${toPublicStatus(this.lastResult.outcome)} | reason=${this.lastResult.reason}`
             )
             return this.lastResult
         }
@@ -43,7 +61,7 @@ export class DailyInstantWin extends BaseActivity {
         const page = this.getActivePage()
         if (!page) {
             return this.finish({
-                outcome: 'error',
+                outcome: 'retryable_error',
                 reason: 'no active browser page was available to open the Instant Win page',
                 clicked: false,
                 diagnostics: {
@@ -51,7 +69,7 @@ export class DailyInstantWin extends BaseActivity {
                     ctaTexts: [],
                     visibleExcerpt: ''
                 }
-            })
+            }, persisted)
         }
 
         try {
@@ -79,11 +97,24 @@ export class DailyInstantWin extends BaseActivity {
             if (diagnose) {
                 await this.saveDiagnoseArtifacts(page, before, diagnoseStage)
                 return this.finish({
-                    outcome: 'unverified',
-                    reason: 'diagnose-only capture, no click',
+                    outcome: decision.outcome,
+                    reason: `diagnose-only capture, no click (${decision.reason})`,
                     clicked: false,
+                    diagnose: true,
+                    blockedFields: decision.blockedFields,
+                    signupComplete: decision.signupComplete,
                     diagnostics: decision.diagnostics
-                })
+                }, persisted)
+            }
+
+            if (decision.signupComplete) {
+                return this.finish({
+                    outcome: decision.outcome,
+                    reason: decision.reason,
+                    clicked: false,
+                    signupComplete: true,
+                    diagnostics: decision.diagnostics
+                }, persisted)
             }
 
             if (decision.outcome !== 'claimable' || !decision.dailyCta) {
@@ -91,8 +122,20 @@ export class DailyInstantWin extends BaseActivity {
                     outcome: decision.outcome,
                     reason: decision.reason,
                     clicked: false,
+                    blockedFields: decision.blockedFields,
+                    signupComplete: decision.signupComplete,
                     diagnostics: decision.diagnostics
-                })
+                }, persisted)
+            }
+
+            if (shouldSkipSameDayAction(persisted, this.todayKey()) || (this.lastResult && this.lastResult.clicked)) {
+                return this.finish({
+                    outcome: persisted?.outcome && persisted.clicked ? persisted.outcome : 'unverified',
+                    reason: 'same-day official click or signup action already recorded; not retrying blindly',
+                    clicked: Boolean(persisted?.clicked || this.lastResult?.clicked),
+                    blockedFields: decision.blockedFields,
+                    diagnostics: decision.diagnostics
+                }, persisted)
             }
 
             if (!isSafeOfficialDailyClaimCta(decision.dailyCta)) {
@@ -101,17 +144,18 @@ export class DailyInstantWin extends BaseActivity {
                     reason: 'daily control failed href/form/terms safety checks; not clicked',
                     clicked: false,
                     diagnostics: decision.diagnostics
-                })
+                }, persisted)
             }
 
             const clicked = await this.clickOfficialDailyCta(page, decision.dailyCta)
             if (!clicked) {
                 return this.finish({
+                    // unique official control could not be clicked; do not invent a receipt
                     outcome: 'unverified',
                     reason: 'official daily Instant Win control was found in the snapshot but could not be clicked uniquely',
                     clicked: false,
                     diagnostics: decision.diagnostics
-                })
+                }, persisted)
             }
 
             await this.bot.utils.wait(this.bot.utils.randomDelay(2000, 4000))
@@ -125,7 +169,7 @@ export class DailyInstantWin extends BaseActivity {
                     reason: 'click opened a details panel (填写报名表/权益说明/查看条款) while the daily card stayed in progress; no distinct Check-winner control or receipt was visible',
                     clicked: true,
                     diagnostics: receipt.diagnostics
-                })
+                }, persisted)
             }
 
             if (receipt.outcome === 'claimable') {
@@ -134,7 +178,7 @@ export class DailyInstantWin extends BaseActivity {
                     reason: 'clicked the official daily control but the page still looks claimable and has no confirmed receipt',
                     clicked: true,
                     diagnostics: receipt.diagnostics
-                })
+                }, persisted)
             }
 
             if (receipt.outcome === 'claimed' || receipt.outcome === 'already_claimed') {
@@ -143,7 +187,7 @@ export class DailyInstantWin extends BaseActivity {
                     reason: receipt.reason,
                     clicked: true,
                     diagnostics: receipt.diagnostics
-                })
+                }, persisted)
             }
 
             return this.finish({
@@ -151,7 +195,7 @@ export class DailyInstantWin extends BaseActivity {
                 reason: `clicked the official daily control but the receipt was not confirmed (${receipt.outcome}: ${receipt.reason})`,
                 clicked: true,
                 diagnostics: receipt.diagnostics
-            })
+            }, persisted)
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
             this.bot.logger.warn(
@@ -160,7 +204,7 @@ export class DailyInstantWin extends BaseActivity {
                 `执行出错，已失败关闭且不阻断后续任务 | ${redactDiagnostics(message, 200)}`
             )
             return this.finish({
-                outcome: 'error',
+                outcome: 'retryable_error',
                 reason: redactDiagnostics(message, 200),
                 clicked: false,
                 diagnostics: {
@@ -168,12 +212,23 @@ export class DailyInstantWin extends BaseActivity {
                     ctaTexts: [],
                     visibleExcerpt: ''
                 }
-            })
+            }, persisted)
         }
     }
 
+    private todayKey(): string {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: process.env.TZ || 'Asia/Shanghai',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date())
+    }
+
     private isTerminal(outcome: InstantWinOutcome): boolean {
-        return outcome === 'claimed' || outcome === 'already_claimed'
+        // Confirmed receipts and missing-data blocks must not infinite-retry in this run.
+        // unverified / retryable_error stay retryable, but same-day clicks are gated separately.
+        return isConfirmedOutcome(outcome) || outcome === 'needs_registration' || outcome === 'missing_profile_fields'
     }
 
     private getActivePage(): Page | null {
@@ -213,18 +268,46 @@ export class DailyInstantWin extends BaseActivity {
                     }
                 })
                 .filter(cta => Boolean(cta.text) && cta.text.length <= 180)
+            const formFields = Array.from(
+                document.querySelectorAll('form input, form select, form textarea, input, select, textarea')
+            ).map(el => {
+                const input = el as HTMLInputElement
+                const tag = el.tagName.toLowerCase()
+                let selectedText = ''
+                let options: string[] = []
+                if (tag === 'select') {
+                    const sel = el as HTMLSelectElement
+                    selectedText = sel.selectedOptions?.[0]?.text?.trim() || ''
+                    options = Array.from(sel.options).map(option => option.text.trim()).filter(Boolean)
+                }
+                const value = input.value || ''
+                return {
+                    name: input.name || '',
+                    label: input.name || input.getAttribute('aria-label') || '',
+                    type: (input.type || tag).toLowerCase(),
+                    required: Boolean(input.required),
+                    hasValue: Boolean(value || selectedText),
+                    valueLength: value ? String(value).length : selectedText.length,
+                    selectedText,
+                    checked: input.type === 'checkbox' || input.type === 'radio' ? Boolean(input.checked) : undefined,
+                    disabled: Boolean(input.disabled),
+                    options: options.length ? options : undefined
+                }
+            })
             return {
                 url: location.href,
                 title: document.title || '',
                 visibleText: (document.body?.innerText || '').replace(/\s+/g, ' ').trim(),
-                ctas
+                ctas,
+                formFields
             }
         })
         return {
             url: data.url || page.url() || TOTAL_PRIZE_DROP_URL,
             title: data.title,
             visibleText: data.visibleText,
-            ctas: data.ctas as PageCta[]
+            ctas: data.ctas as PageCta[],
+            formFields: data.formFields as FormFieldInventory[]
         }
     }
 
@@ -292,12 +375,31 @@ export class DailyInstantWin extends BaseActivity {
         )
     }
 
-    private finish(result: DailyInstantWinResult): DailyInstantWinResult {
+    private finish(result: DailyInstantWinResult, previous: InstantWinStatusRecord | null = null): DailyInstantWinResult {
+        const alias = accountEvidenceAlias(this.bot.userData.userName)
+        const record = buildStatusRecord({
+            outcome: result.outcome,
+            reason: result.reason,
+            clicked: result.clicked,
+            visibleText: result.diagnostics.visibleExcerpt,
+            blockedFields: result.blockedFields,
+            signupComplete: result.signupComplete,
+            diagnose: result.diagnose,
+            previous
+        })
+        result.publicStatus = record.publicStatus
+        result.receiptKind = record.receiptKind
+        result.signupComplete = record.signupComplete
         this.lastResult = result
+        if (!result.diagnose) {
+            saveStatusRecord(defaultStatusDir(), alias, record)
+        }
+        const blocked = result.blockedFields?.length ? ` | blocked=${result.blockedFields.join(',')}` : ''
+        const receipt = record.receiptKind ? ` | receipt=${record.receiptKind}` : ''
         this.bot.logger.info(
             this.bot.isMobile,
             'DAILY-INSTANT-WIN',
-            `完成 | status=${result.outcome} | clicked=${result.clicked} | reason=${result.reason}`
+            `完成 | status=${result.outcome} | public=${record.publicStatus}${receipt} | clicked=${result.clicked}${blocked} | reason=${result.reason}`
         )
         return result
     }
