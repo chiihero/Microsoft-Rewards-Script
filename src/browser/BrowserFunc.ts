@@ -293,7 +293,7 @@ export default class BrowserFunc {
     async bootstrap(page: Page): Promise<void> {
         try {
             // /earn is the offers page
-            await page.goto(URLs.rewards.earn, { waitUntil: 'domcontentloaded' })
+            await page.goto(URLs.rewards.earn, { waitUntil: 'domcontentloaded', timeout: 60000 })
 
             // first-time welcome modal blocks the dashboard from rendering
             await this.dismissRewardsWelcomeDialog(page)
@@ -317,7 +317,11 @@ export default class BrowserFunc {
             // discovered from chunks referenced by either page
             this.bot.nextActions = await this.resolveActionIds(page, sources)
 
-            const dashboardRendered = /<section\b[^>]*\bid=["']dailyset["']/i.test(sources.join('\n'))
+            // 2026-11 前端改版后 /earn 的 section 不再是 dailyset（现为 streaks/quests/levelup），
+            // 只要快照能解析出活动，就说明页面已渲染，不应再中止整轮
+            const dashboardRendered =
+                /<section\b[^>]*\bid=["']dailyset["']/i.test(sources.join('\n')) ||
+                Boolean(this.bot.reactSnapshot.offers.length)
             if (!dashboardRendered) {
                 throw new Error(
                     'Rewards dashboard did not render (no section#dailyset) - likely a login/redirect issue, aborting'
@@ -387,21 +391,36 @@ export default class BrowserFunc {
     }
 
     private async fetchBootstrapHtml(page: Page, url: string, route: string): Promise<string> {
-        try {
-            const res = await page.request.get(url, { timeout: 20000 })
-            if (res.ok()) return await res.text()
+        const attempts = 3
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                const res = await page.request.get(url, { timeout: 45000 })
+                if (res.ok()) {
+                    const text = await res.text()
+                    // 改版后的 SPA 外壳不含 RSC 载荷，用它做快照会解析不出活动，需要重试
+                    if (text.includes('__next_f') || /<section\b/i.test(text)) return text
 
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'BOOTSTRAP',
-                `获取 ${route} HTML 失败 | 状态码=${res.status()} - 快照和 action 发现可能不完整`
-            )
-        } catch (error) {
-            this.bot.logger.warn(
-                this.bot.isMobile,
-                'BOOTSTRAP',
-                `获取 ${route} HTML 失败 | 错误=${error instanceof Error ? error.message : String(error)} - 快照和 action 发现可能不完整`
-            )
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'BOOTSTRAP',
+                        `获取 ${route} 返回 SPA 外壳（无 RSC 载荷）| 重试 ${attempt}/${attempts}`
+                    )
+                } else {
+                    this.bot.logger.warn(
+                        this.bot.isMobile,
+                        'BOOTSTRAP',
+                        `获取 ${route} HTML 失败 | 状态码=${res.status()} | 重试 ${attempt}/${attempts}`
+                    )
+                }
+            } catch (error) {
+                this.bot.logger.warn(
+                    this.bot.isMobile,
+                    'BOOTSTRAP',
+                    `获取 ${route} HTML 失败 | 错误=${error instanceof Error ? error.message : String(error)} | 重试 ${attempt}/${attempts}`
+                )
+            }
+
+            if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, 2000 * attempt))
         }
 
         return ''
