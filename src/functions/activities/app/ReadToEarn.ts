@@ -6,7 +6,7 @@ import { randomBytes } from 'crypto'
 import { BaseActivity } from '../BaseActivity'
 
 export class ReadToEarn extends BaseActivity {
-    public async doReadToEarn() {
+    public async doReadToEarn(beforeFirstWait?: () => Promise<void>) {
         if (!this.bot.accessToken) {
             this.bot.logger.warn(this.bot.isMobile, 'READ-TO-EARN', '跳过：应用访问令牌不可用，此活动需要它！')
             return
@@ -108,6 +108,17 @@ export class ReadToEarn extends BaseActivity {
                 )
 
                 if (i < articleCount - 1) {
+                    if (i === 0 && beforeFirstWait) {
+                        try {
+                            await beforeFirstWait()
+                        } catch (error) {
+                            this.bot.logger.warn(
+                                this.bot.isMobile,
+                                'READ-TO-EARN',
+                                '释放空闲浏览器失败：' + (error instanceof Error ? error.message : String(error))
+                            )
+                        }
+                    }
                     await this.bot.utils.wait(this.bot.utils.randomDelay(delayMin, delayMax))
                 }
             }

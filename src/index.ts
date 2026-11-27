@@ -729,12 +729,22 @@ export class MicrosoftRewardsBot {
         const closeMobileSession = async (): Promise<void> => {
             const session = mobileSession
             if (!session) return
-            mobileSession = null
 
             await executionContext.run({ isMobile: true, account }, async () => {
                 await this.browser.func.checkpointActiveSession('PRE-BROWSER-CLOSE')
                 await this.browser.func.closeBrowser(session.context, accountEmail)
             })
+            mobileSession = null
+        }
+
+        const restoreMobileSession = async (): Promise<void> => {
+            if (mobileSession) return
+            mobileSession = await this.browserFactory.createBrowser(account)
+            this.mainMobilePage = await mobileSession.context.newPage()
+            this.fingerprintMobile = mobileSession.fingerprint
+            await this.login.login(this.mainMobilePage, account)
+            await this.browser.func.checkpointActiveSession('LOGIN-CHECKPOINT')
+            this.cookies.mobile = await mobileSession.context.cookies()
         }
 
         const closeDesktopSession = async (): Promise<void> => {
@@ -1003,15 +1013,21 @@ export class MicrosoftRewardsBot {
                         if (await this.activities.doAppPromotions(appData)) await this.gapBetweenWorkers()
                     }
                     if (appAvailable && this.config.workers.doReadToEarn) {
-                        if (await this.activities.doReadToEarn()) await this.gapBetweenWorkers()
+                        const releaseDuringReading =
+                            !apiSearch && !parallel && !doBonus && !this.config.experimental.edgeBrowsing
+                                ? closeMobileSession
+                                : undefined
+                        if (await this.activities.doReadToEarn(releaseDuringReading)) await this.gapBetweenWorkers()
                     }
                     if (this.config.workers.doPunchCards) {
+                        if (!mobileSession && !apiSearch) await restoreMobileSession()
                         if (await this.activities.doPunchCardsMobile(data)) await this.gapBetweenWorkers()
                     }
 
                     const plan = await this.searchManager.getSearchPoints()
                     const doMobileSearch = plan.doMobile
                     const doDesktopSearch = plan.doDesktop
+                    if (doMobileSearch && !apiSearch && !mobileSession) await restoreMobileSession()
 
                     const desktopBrowserNeeded =
                         (this.config.workers.doPunchCards || doVisualSearch || (doDesktopSearch && !apiSearch)) &&
